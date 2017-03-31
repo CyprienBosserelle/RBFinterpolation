@@ -1,7 +1,7 @@
 #include <iostream>
 #include <math.h>
 #include <armadillo>
-
+#include "RBF.h"
 //#define pi 3.14159265
 
 using namespace std;
@@ -10,37 +10,8 @@ using namespace arma;
 
 
 
-void split(const std::string &s, char delim, std::vector<std::string> &elems) {
-	std::stringstream ss;
-	ss.str(s);
-	std::string item;
-	while (std::getline(ss, item, delim)) {
-		if (!item.empty())//skip empty tokens
-		{
-			elems.push_back(item);
-		}
-
-	}
-}
 
 
-std::vector<std::string> split(const std::string &s, char delim) {
-	std::vector<std::string> elems;
-	split(s, delim, elems);
-	return elems;
-}
-
-std::string trim(const std::string& str, const std::string& whitespace)
-{
-	const auto strBegin = str.find_first_not_of(whitespace);
-	if (strBegin == std::string::npos)
-		return ""; // no content
-
-	const auto strEnd = str.find_last_not_of(whitespace);
-	const auto strRange = strEnd - strBegin + 1;
-
-	return str.substr(strBegin, strRange);
-}
 
 mat RBFgaussian(mat r, double gamma)
 {
@@ -181,53 +152,32 @@ main(int argc, char** argv)
 
 	double gamma = 0.2672;
 
-	int ncenters = 300;
+	int ncenters;
 
-	int dim = 4;
+	int dim;
 
 
 
 	vector<double> results;
 
 	// Set up variables
-	x = zeros(dim, ncenters);
-	y = zeros(1, ncenters);
+	//x = zeros(dim, ncenters);
+	
 
 
+	//load centers
+	x = readdatafile("test_MDA_300.dat");
+	
+	dim = x.n_rows;
 
-	//Open file containing RBF centers
-	std::ifstream fs;
+	ncenters = x.n_cols;
 
-
-	fs.open("test_MDA_300.dat");
-
-	if (fs.fail()){
-		std::cerr << "test_MDA_300.dat file could not be openned" << std::endl;
-	}
-
-	std::string line;
-	std::vector<std::string> lineelements;
-	int nline=0;
-	while (std::getline(fs, line))
-	{
-		if (!line.empty())
-		{
-			lineelements = split(line, '  ');
-			if (lineelements.size() < 4)
-			{
-				std::cerr <<  "ERROR test_MDA_300.dat file format error. only " << lineelements.size() << " where 4 were expected. Exiting." << std::endl;
-				exit(1);
-			}
-			for (int n = 0; n < dim; n++)
-			{
-				x(n, nline) = std::stod(lineelements[n]);
-			}
-			
-			nline++;
-		}
-	}
-	fs.close();
-
+	//y = zeros(1, ncenters);
+	//std::ifstream fs;
+	//int nline = 0;
+	//std::string line;
+	//std::vector<std::string> lineelements;
+	
 
 	// Calculate min and max for normalisation of centers and training data
 	double maxHs = x(0, 1);
@@ -259,29 +209,9 @@ main(int argc, char** argv)
 	}
 
 
-	// Read the training data
-	fs.open("MauiBay_Shore_MDA_zs.txt");
-
-	if (fs.fail()){
-		std::cerr << "MauiBay_Shore_MDA_zs.txt file could not be openned" << std::endl;
-	}
-
-	line.clear();
-	lineelements.clear(); // being frugal here
-	nline = 0;
-	while (std::getline(fs, line))
-	{
-		if (!line.empty())
-		{
-			
-			y(nline) = std::stod(line);
-			
-
-			nline++;
-		}
-	}
-	fs.close();
-
+	// load the training data (should be 1 column with ncenter lines)
+	y = readdatafile("MauiBay_Shore_MDA_zs.txt");
+	
 
 	
 	//train the RBF
@@ -290,43 +220,15 @@ main(int argc, char** argv)
 	mat test;
 	
 	mat readline = zeros(dim, 1);
-	test = zeros(dim, 49211);/////// !!!!!
-
+	
 	//Load the test data
-	fs.open("Test_data_MB_Shore.txt");
+	test = readdatafile("Test_data_MB_Shore.txt");
 
-	if (fs.fail()){
-		std::cerr << "Test_data_MB_Shore.txt file could not be openned" << std::endl;
-	}
-
-	line.clear();
-	lineelements.clear();
-	nline = 0;
-	while (std::getline(fs, line))
-	{
-		if (!line.empty())
-		{
-			lineelements = split(line, '\t');
-			if (lineelements.size() < 4)
-			{
-				std::cerr << "ERROR Test_data_MB_Shore.txt file format error. only " << lineelements.size() << " where 4 were expected. Exiting." << std::endl;
-				exit(1);
-			}
-			for (int n = 0; n < dim; n++)
-			{
-				test(n, nline) = std::stod(lineelements[n]);
-				
-			}
-
-			
-
-			nline++;
-		}
-	}
-	fs.close();
+	
+	
 
 	// Normalise the data to the centers max
-	for (int n = 0; n < nline; n++)
+	for (int n = 0; n < test.n_cols; n++)
 	{
 		test(0, n) = (test(0, n) - minHs) / (maxHs - minHs);
 		test(1, n) = (test(1, n) - minT) / (maxT - minT);
@@ -336,7 +238,7 @@ main(int argc, char** argv)
 
 	// Do the interpolation
 	
-	for (int n = 0; n < nline; n++)
+	for (int n = 0; n < test.n_cols; n++)
 	{
 		results.push_back(RBFinterp(ncenters, dim, gamma, RBFcoeff, x, test.col(n)));
 		
