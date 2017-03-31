@@ -287,46 +287,8 @@ main(int argc, char** argv)
 	//train the RBF
 	mat RBFcoeff;
 	RBFcoeff = RBFtrain(ncenters, dim, gamma, x, y);
-	mat test, rr;
-		/*
-		mat A(ncenters, ncenters);
-	mat r,t,o,P, X,B,b, RBFcoeff;
-	mat test, rr,s,f;
-
-	A.zeros();
-
-	for (int i = 0; i < ncenters; i++)
-	{
-		//
-		for (int j = 0; j <= i; j++)
-		{
-			//
-			r = norm(x.col(i)-x.col(j));
-
-			t= exp(-0.5 * r % r / (gamma * gamma));// is 1 by 1 yeah?
-			
-			A(i, j) = t(0,0);
-			A(j, i) = t(0,0);
-		}
-	}
-
-	o = ones(ncenters, 1);
-
-	P = join_rows(o, x.t());
-
-	X = join_rows(A, P);
-
-	B = join_rows(P.t(), zeros(dim + 1, dim + 1));
-	A = join_cols(X, B);
-
-	//A.save("A_mat.txt", raw_ascii);
-
-	b = join_cols(y.t(), zeros(dim + 1, 1));
-	//b.save("b_mat.txt", raw_ascii);
-
-	RBFcoeff = solve(A, b);
-	//RBFcoeff.save("RBFcoeff_mat.txt", raw_ascii);
-	*/
+	mat test;
+	
 	mat readline = zeros(dim, 1);
 	test = zeros(dim, 49211);/////// !!!!!
 
@@ -373,8 +335,7 @@ main(int argc, char** argv)
 	}
 
 	// Do the interpolation
-	rr = zeros(1, ncenters);
-
+	
 	for (int n = 0; n < nline; n++)
 	{
 		results.push_back(RBFinterp(ncenters, dim, gamma, RBFcoeff, x, test.col(n)));
