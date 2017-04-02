@@ -19,7 +19,7 @@ mat RBFgaussian(mat r, double gamma)
 	return exp(-0.5 * r % r / (gamma * gamma));
 }
 
-double calculateGamma(int ncenters, int dims, mat r)
+double calculateGamma(int ncenters, int ndim, mat r)
 {
 	double variance = -1;
 	double gamma;
@@ -50,7 +50,7 @@ double calculateGamma(int ncenters, int dims, mat r)
 
 }*/
 
-mat RBFtrain(int ncenters, int dim, double gamma, mat centersnorm, mat data)
+mat RBFtrain(int ncenters, int ndim, double gamma, mat centersnorm, mat data)
 {
 	// Calculate the RBFcoeff 
 	mat A(ncenters, ncenters);
@@ -80,12 +80,12 @@ mat RBFtrain(int ncenters, int dim, double gamma, mat centersnorm, mat data)
 
 	X = join_rows(A, P);
 
-	B = join_rows(P.t(), zeros(dim + 1, dim + 1));
+	B = join_rows(P.t(), zeros(ndim + 1, ndim + 1));
 	A = join_cols(X, B);
 
 	//A.save("A_mat.txt", raw_ascii);
 
-	b = join_cols(data.t(), zeros(dim + 1, 1));
+	b = join_cols(data.t(), zeros(ndim + 1, 1));
 	//b.save("b_mat.txt", raw_ascii);
 
 	RBFcoeff = solve(A, b);
@@ -95,7 +95,7 @@ mat RBFtrain(int ncenters, int dim, double gamma, mat centersnorm, mat data)
 }
 
 
-double RBFinterp(int ncenters, int dim, double gamma, mat RBFcoeff, mat centersnorm, mat pointsnorm)
+double RBFinterp(int ncenters, int ndim, double gamma, mat RBFcoeff, mat centersnorm, mat pointsnorm)
 {
 	// perform the RBF interpolation using gamma, RBFcoeff the centers normalised and the new locations to interpolate to;
 	
@@ -132,7 +132,7 @@ double RBFinterp(int ncenters, int dim, double gamma, mat RBFcoeff, mat centersn
 	s = RBFcoeff(ncenters) + sum(tmp3, 0);
 	
 
-	for (int k = 0; k < dim; k++)
+	for (int k = 0; k < ndim; k++)
 	{
 		s = s + RBFcoeff(ncenters + k + 1)*pointsnorm(k, 0);
 	}
@@ -147,103 +147,182 @@ main(int argc, char** argv)
 {
 
 	//
+	Param Param;
+
 
 	mat x, y;
 
-	double gamma = 0.2672;
+	Param.gamma = 0.2672;
+	Param.centersfile = "test_MDA_300.dat";
+	Param.trainingfile = "MauiBay_Shore_MDA_zs.txt";
+	Param.inputfile = "Test_data_MB_Shore.txt";
+	Param.isdir = 2;
+
+
+	//sanity check
+	if (Param.outputfile.empty())
+	{
+		Param.outputfile = "RBFoutput.txt";
+	}
+
+	if (Param.RBFcoefffile.empty() && Param.saveRBFcoeffs == 1)
+	{
+		Param.RBFcoefffile = "RBFcoeff.txt";
+	}
+
 
 	int ncenters;
 
-	int dim;
+	int ndim;
 
 
 
 	vector<double> results;
-
-	// Set up variables
-	//x = zeros(dim, ncenters);
-	
-
+		
 
 	//load centers
-	x = readdatafile("test_MDA_300.dat");
+	x = readdatafile(Param.centersfile);
 	
-	dim = x.n_rows;
+	Param.ndim = x.n_rows;
 
-	ncenters = x.n_cols;
+	Param.ncenters = x.n_cols;
 
-	//y = zeros(1, ncenters);
-	//std::ifstream fs;
-	//int nline = 0;
-	//std::string line;
-	//std::vector<std::string> lineelements;
 	
-
 	// Calculate min and max for normalisation of centers and training data
-	double maxHs = x(0, 1);
-	double maxT = x(1, 1);
-	double maxNM = x(3, 1);
-
-	double minHs = x(0, 1);
-	double minT = x(1, 1);
-	double minNM = x(3, 1);
+	std::vector<double> maxdimval, mindimval;
 	
-	for (int n = 0; n < ncenters; n++)
-	{
-		maxHs = max(x(0, n), maxHs);
-		maxT = max(x(1, n), maxT);
-		maxNM = max(x(3, n), maxNM);
 
-		minHs = min(x(0, n), minHs);
-		minT = min(x(1, n), minT);
-		minNM = min(x(3, n), minNM);
+
+
+
+	for (int i = 0; i < Param.ndim; i++)
+	{
+		if (i != Param.isdir)
+		{
+			maxdimval.push_back(x(i, 0));
+			mindimval.push_back(x(i, 0));
+		}
+		else
+		{
+			maxdimval.push_back(180.0/datum::pi);
+			mindimval.push_back(0.0);
+		}
+
+	}
+	
+	//double maxHs = x(0, 1);
+	//double maxT = x(1, 1);
+	//double maxNM = x(3, 1);
+
+	//double minHs = x(0, 1);
+	//double minT = x(1, 1);
+	//double minNM = x(3, 1);
+	
+	for (int n = 0; n < Param.ncenters; n++)
+	{
+		for (int i = 0; i < Param.ndim; i++)
+		{
+			if (i != Param.isdir)
+			{
+				maxdimval[i] = max(x(i, n), maxdimval[i]);
+				mindimval[i] = min(x(i, n), mindimval[i]);
+			}
+
+		}
+
+
+
+		//maxHs = max(x(0, n), maxHs);
+		//maxT = max(x(1, n), maxT);
+		//maxNM = max(x(3, n), maxNM);
+
+		//minHs = min(x(0, n), minHs);
+		//minT = min(x(1, n), minT);
+		//minNM = min(x(3, n), minNM);
 	}
 	// Normalise the centers to min max
 
-	for (int n = 0; n < ncenters; n++)
+	for (int n = 0; n < Param.ncenters; n++)
 	{
-		x(0, n) = (x(0, n) - minHs) / (maxHs - minHs);
-		x(1, n) = (x(1, n) - minT) / (maxT - minT);
-		x(2, n) = x(2, n)*datum::pi/180.0;
-		x(3, n) = (x(3, n) - minNM) / (maxNM - minNM);
+		for (int i = 0; i < Param.ndim; i++)
+		{
+			x(i, n) = (x(i, n) - mindimval[i]) / (maxdimval[i] - mindimval[i]);
+		}
+		//x(1, n) = (x(1, n) - minT) / (maxT - minT);
+		//x(2, n) = x(2, n)*datum::pi/180.0;
+		//x(3, n) = (x(3, n) - minNM) / (maxNM - minNM);
 	}
 
 
-	// load the training data (should be 1 column with ncenter lines)
-	y = readdatafile("MauiBay_Shore_MDA_zs.txt");
-	
 
-	
-	//train the RBF
 	mat RBFcoeff;
-	RBFcoeff = RBFtrain(ncenters, dim, gamma, x, y);
-	mat test;
-	
-	mat readline = zeros(dim, 1);
-	
-	//Load the test data
-	test = readdatafile("Test_data_MB_Shore.txt");
-
-	
-	
-
-	// Normalise the data to the centers max
-	for (int n = 0; n < test.n_cols; n++)
+	if (Param.trainRBF == 1 && !Param.trainingfile.empty())
 	{
-		test(0, n) = (test(0, n) - minHs) / (maxHs - minHs);
-		test(1, n) = (test(1, n) - minT) / (maxT - minT);
-		test(2, n) = test(2, n)*datum::pi / 180.0;
-		test(3, n) = (test(3, n) - minNM) / (maxNM - minNM);
-	}
+		// load the training data (should be 1 column with ncenter lines)
+		y = readdatafile(Param.trainingfile);
 
-	// Do the interpolation
-	
-	for (int n = 0; n < test.n_cols; n++)
-	{
-		results.push_back(RBFinterp(ncenters, dim, gamma, RBFcoeff, x, test.col(n)));
+
+
+		//train the RBF
+		RBFcoeff = RBFtrain(Param.ncenters, Param.ndim, Param.gamma, x, y);
+
+		if (Param.saveRBFcoeffs == 1)
+		{
+			//Convert mat to vector
+			std::vector<double> RBFcoeffvec;
+
+			for (int n = 0; n < RBFcoeff.n_rows; n++)
+			{
+				RBFcoeffvec.push_back(RBFcoeff(n));
+			}
+			//write data file
+			writedatafile(RBFcoeffvec, Param.RBFcoefffile);
+		}
+		
+
 		
 	}
+	else
+	{
+		// Then it must be loaded
+		RBFcoeff = readdatafile(Param.RBFcoefffile);
+	}
 
+	if (Param.interpRBF == 1 && !Param.inputfile.empty())
+	{
+		mat test;
+		//Load the test data
+		test = readdatafile(Param.inputfile);
+
+
+
+
+		// Normalise the data to the centers max
+		for (int n = 0; n < test.n_cols; n++)
+		{
+			for (int i = 0; i < Param.ndim; i++)
+			{
+				test(i, n) = (test(i, n) - mindimval[i]) / (maxdimval[i] - mindimval[i]);
+			}
+			//test(0, n) = (test(0, n) - minHs) / (maxHs - minHs);
+			//test(1, n) = (test(1, n) - minT) / (maxT - minT);
+			//test(2, n) = test(2, n)*datum::pi / 180.0;
+			//test(3, n) = (test(3, n) - minNM) / (maxNM - minNM);
+		}
+
+		// Do the interpolation
+
+		for (int n = 0; n < test.n_cols; n++)
+		{
+			results.push_back(RBFinterp(Param.ncenters, Param.ndim, Param.gamma, RBFcoeff, x, test.col(n)));
+
+		}
+
+		// write data file
+		writedatafile(results, Param.outputfile);
+
+		
+	}
 
 
 	return 0;

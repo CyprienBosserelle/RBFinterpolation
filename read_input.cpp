@@ -145,6 +145,20 @@ std::string trim(const std::string& str, const std::string& whitespace)
 }
 
 
+void writedatafile(std::vector<double> outputdata, std::string outputfile)
+{
+	FILE * fs;
+	errno_t  err= fopen_s(&fs,outputfile.c_str(),"w");
+	for (int i = 0; i < outputdata.size(); i++)
+	{
+		//
+		fprintf(fs, "%lf\n", outputdata[i]);
+	}
+	fclose(fs);
+	
+}
+
+
 arma::mat readdatafile(std::string filename)
 {
 	int ndim = 1;
