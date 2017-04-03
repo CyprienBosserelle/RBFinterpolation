@@ -68,6 +68,32 @@ Param readparamstr(std::string line, Param param)
 		param.ncenters = std::stoi(parametervalue);
 	}
 
+	parameterstr = "isdir";
+	parametervalue = findparameter(parameterstr, line);
+	if (!parametervalue.empty())
+	{
+		param.isdir = std::stoi(parametervalue);
+	}
+
+	parameterstr = "trainRBF";
+	parametervalue = findparameter(parameterstr, line);
+	if (!parametervalue.empty())
+	{
+		param.trainRBF = std::stoi(parametervalue);
+	}
+	parameterstr = "saveRBFcoeffs";
+	parametervalue = findparameter(parameterstr, line);
+	if (!parametervalue.empty())
+	{
+		param.saveRBFcoeffs = std::stoi(parametervalue);
+	}
+	parameterstr = "interpRBF";
+	parametervalue = findparameter(parameterstr, line);
+	if (!parametervalue.empty())
+	{
+		param.interpRBF = std::stoi(parametervalue);
+	}
+
 	
 	parameterstr = "gamma";
 	parametervalue = findparameter(parameterstr, line);
@@ -161,7 +187,7 @@ void writedatafile(std::vector<double> outputdata, std::string outputfile)
 
 arma::mat readdatafile(std::string filename)
 {
-	int ndim = 1;
+	int ndim = 1; // adjusted later
 	int nline = 0;
 	
 

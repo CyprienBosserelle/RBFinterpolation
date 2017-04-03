@@ -152,11 +152,40 @@ main(int argc, char** argv)
 
 	mat x, y;
 
-	Param.gamma = 0.2672;
-	Param.centersfile = "test_MDA_300.dat";
-	Param.trainingfile = "MauiBay_Shore_MDA_zs.txt";
-	Param.inputfile = "Test_data_MB_Shore.txt";
-	Param.isdir = 2;
+
+	//////////////////////////////////////////////////////
+	/////             Read Operational file          /////
+	//////////////////////////////////////////////////////
+
+	std::ifstream fs("RBF_param.txt");
+
+	if (fs.fail()){
+		std::cerr << "RBF_param.txt file could not be opened" << std::endl;
+		//write_text_to_log_file("ERROR: XBG_param.txt file could not be opened...use this log file to create a file named XBG_param.txt");
+		//SaveParamtolog(XParam);
+		exit(1);
+	}
+	// Read and interpret each line of the XBG_param.txt
+	std::string line;
+	while (std::getline(fs, line))
+	{
+		//std::cout << line << std::endl;
+
+		//Get param or skip empty lines
+		if (!line.empty() && line.substr(0, 1).compare("#") != 0)
+		{
+			Param = readparamstr(line, Param);
+			//std::cout << line << std::endl;
+		}
+
+	}
+	fs.close();
+
+	//Param.gamma = 0.2672;
+	//Param.centersfile = "test_MDA_300.dat";
+	//Param.trainingfile = "MauiBay_Shore_MDA_zs.txt";
+	//Param.inputfile = "Test_data_MB_Shore.txt";
+	//Param.isdir = 2;
 
 
 	//sanity check
