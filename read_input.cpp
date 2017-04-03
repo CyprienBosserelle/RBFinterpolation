@@ -44,7 +44,7 @@ Param readparamstr(std::string line, Param param)
 		//std::cerr << "Bathymetry file found!" << std::endl;
 	}
 
-	parameterstr = "RBRcoefffile";
+	parameterstr = "RBFcoefffile";
 	parametervalue = findparameter(parameterstr, line);
 	if (!parametervalue.empty())
 	{
@@ -60,6 +60,15 @@ Param readparamstr(std::string line, Param param)
 		//std::cerr << "Bathymetry file found!" << std::endl;
 	}
 	
+
+	//std::string outputfile;
+	parameterstr = "outputfile";
+	parametervalue = findparameter(parameterstr, line);
+	if (!parametervalue.empty())
+	{
+		param.outputfile = parametervalue;
+		//std::cerr << "Bathymetry file found!" << std::endl;
+	}
 	//
 	parameterstr = "ncenters";
 	parametervalue = findparameter(parameterstr, line);

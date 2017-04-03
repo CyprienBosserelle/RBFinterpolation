@@ -95,7 +95,7 @@ mat RBFtrain(int ncenters, int ndim, double gamma, mat centersnorm, mat data)
 }
 
 
-double RBFinterp(int ncenters, int ndim, double gamma, mat RBFcoeff, mat centersnorm, mat pointsnorm)
+double RBFinterp(int ncenters, int ndim, double gamma, mat RBFcoeffw, mat centersnorm, mat pointsnorm)
 {
 	// perform the RBF interpolation using gamma, RBFcoeff the centers normalised and the new locations to interpolate to;
 	
@@ -123,18 +123,18 @@ double RBFinterp(int ncenters, int ndim, double gamma, mat RBFcoeff, mat centers
 	tmp1 = exp(-0.5 * rr % rr / (gamma * gamma));
 	
 
-	tmp2 = RBFcoeff.rows(0, ncenters - 1);
+	tmp2 = RBFcoeffw.rows(0, ncenters - 1);
 	
 
 	tmp3 = tmp2 % tmp1.t();
 	
 
-	s = RBFcoeff(ncenters) + sum(tmp3, 0);
+	s = RBFcoeffw(ncenters) + sum(tmp3, 0);
 	
 
 	for (int k = 0; k < ndim; k++)
 	{
-		s = s + RBFcoeff(ncenters + k + 1)*pointsnorm(k, 0);
+		s = s + RBFcoeffw(ncenters + k + 1)*pointsnorm(k, 0);
 	}
 
 
