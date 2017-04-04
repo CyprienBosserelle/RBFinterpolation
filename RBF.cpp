@@ -315,6 +315,7 @@ main(int argc, char** argv)
 	{
 		// Then it must be loaded
 		RBFcoeff = readdatafile(Param.RBFcoefffile);
+		RBFcoeff = RBFcoeff.t(); // Because the subroutine reads this the wrong way around...
 	}
 
 	if (Param.interpRBF == 1 && !Param.inputfile.empty())
