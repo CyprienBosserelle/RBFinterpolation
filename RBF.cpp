@@ -313,9 +313,20 @@ main(int argc, char** argv)
 	}
 	else
 	{
-		// Then it must be loaded
-		RBFcoeff = readdatafile(Param.RBFcoefffile);
-		RBFcoeff = RBFcoeff.t(); // Because the subroutine reads this the wrong way around...
+		std::vector<std::string> extvec = split(Param.RBFcoefffile, '.');
+
+		std::string fileext = extvec.back();
+		if (fileext.compare("nc") == 0)//IF 2D
+		{
+			//Do something
+		}
+		else //1D
+		{
+			// Then it must be loaded
+			RBFcoeff = readdatafile(Param.RBFcoefffile);
+			RBFcoeff = RBFcoeff.t(); // Because the subroutine reads this the wrong way around...
+		}
+		
 	}
 
 	if (Param.interpRBF == 1 && !Param.inputfile.empty())
