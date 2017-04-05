@@ -151,8 +151,10 @@ main(int argc, char** argv)
 
 
 	mat x, y;
-
-
+	int twodee = 0;
+	int nx = 1;
+	int ny = 1;
+	int nt; //
 	//////////////////////////////////////////////////////
 	/////             Read Operational file          /////
 	//////////////////////////////////////////////////////
@@ -200,9 +202,9 @@ main(int argc, char** argv)
 	}
 
 
-	int ncenters;
+	
 
-	int ndim;
+	
 
 
 
@@ -285,6 +287,7 @@ main(int argc, char** argv)
 
 
 	mat RBFcoeff;
+	cube RBFcoeffGrid;
 	if (Param.trainRBF == 1 && !Param.trainingfile.empty())
 	{
 		// load the training data (should be 1 column with ncenter lines)
@@ -313,12 +316,24 @@ main(int argc, char** argv)
 	}
 	else
 	{
+		// First look at the size of the grid 
+		
 		std::vector<std::string> extvec = split(Param.RBFcoefffile, '.');
 
 		std::string fileext = extvec.back();
-		if (fileext.compare("nc") == 0)//IF 2D
+
+		int strcmp = fileext.compare(0,2,"nc");// this is safer than comparing the whole string which can have trhe ?varname attached to it
+		if (strcmp == 0)//IF 2D
 		{
-			//Do something
+			twodee = 1;
+			//read grid size
+			readgridncsize(Param.RBFcoefffile, nx, ny, nt);
+			// init RBFCoeffGrid
+			//mat RBFcoeffGrid = zeros(nx, ny, nt);
+			RBFcoeffGrid = read3Dnc(Param.RBFcoefffile, nx, ny, nt);
+
+			
+			
 		}
 		else //1D
 		{
@@ -334,10 +349,6 @@ main(int argc, char** argv)
 		mat test;
 		//Load the test data
 		test = readdatafile(Param.inputfile);
-
-
-
-
 		// Normalise the data to the centers max
 		for (int n = 0; n < test.n_cols; n++)
 		{
@@ -351,19 +362,64 @@ main(int argc, char** argv)
 			//test(3, n) = (test(3, n) - minNM) / (maxNM - minNM);
 		}
 
-		// Do the interpolation
-
-		for (int n = 0; n < test.n_cols; n++)
+		if (twodee == 0)
 		{
-			results.push_back(RBFinterp(Param.ncenters, Param.ndim, Param.gamma, RBFcoeff, x, test.col(n)));
+			//In this case 
+			// Do the interpolation
 
+			for (int n = 0; n < test.n_cols; n++)
+			{
+				results.push_back(RBFinterp(Param.ncenters, Param.ndim, Param.gamma, RBFcoeff, x, test.col(n)));
+
+			}
+
+			// write data file
+			writedatafile(results, Param.outputfile);
 		}
+		else
+		{
+			//
+			//cube resultsTD = zeros(RBFcoeffGrid.n_cols, RBFcoeffGrid.n_slices, test.n_cols);
+			//
+			double * results2d, *xx, *yy, *theta;
 
-		// write data file
-		writedatafile(results, Param.outputfile);
+			results2d = (double *)malloc(test.n_cols*nx*ny*sizeof(double));
+			xx = (double *)malloc(nx*sizeof(double));
+			yy = (double *)malloc(ny*sizeof(double));
+			theta = (double *)malloc(test.n_cols*sizeof(double));
 
-		
+			for (int xi = 0; xi < nx; xi++)
+			{
+				xx[xi] = xi;
+			}
+			for (int yi = 0; yi < ny; yi++)
+			{
+				yy[yi] = yi;
+			}
+
+			for (int n = 0; n < test.n_cols; n++)
+			{
+				theta[n] = n;
+			}
+
+			for (int xi = 0; xi < nx; xi++)
+			{
+				for (int yi = 0; yi < ny; yi++)
+				{
+					for (int n = 0; n < test.n_cols; n++)
+					{
+						results2d[xi+yi*nx+n*ny*nx]=RBFinterp(Param.ncenters, Param.ndim, Param.gamma, RBFcoeffGrid(span(0,304),span(yi,yi),span(xi,xi)), x, test.col(n));
+
+					}
+				}
+			}
+			// Write 3d netcdf
+			create3dnc(nx, ny, nt, 1.0, 1.0, 1.0, 0.0, xx, yy, theta, results2d);
+
+			free(results2d);
+		}
 	}
+	
 
 
 	return 0;

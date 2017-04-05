@@ -4,7 +4,7 @@
 
 #include <stdio.h>
 #include <cmath>
-
+#include <netcdf.h>
 #include <iostream>
 #include <string.h>
 #include <math.h>
@@ -46,6 +46,11 @@ std::vector<std::string> split(const std::string &s, char delim);
 std::string trim(const std::string& str, const std::string& whitespace);
 arma::mat readdatafile(std::string filename);
 void writedatafile(std::vector<double> outputdata, std::string outputfile);
+void readgridncsize(std::string ncfile, int &nx, int &ny, int &nt);
+arma::cube read3Dnc(std::string ncfile, int nx, int ny, int nt);
+void handle_error(int status);
+
+extern "C" void create3dnc(int nx, int ny, int nt, double dx, double dy, double dtheta, double totaltime, double *xx, double *yy, double *theta, double * var);
 
 
 #endif
