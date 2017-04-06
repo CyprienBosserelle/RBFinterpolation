@@ -464,7 +464,7 @@ arma::cube read3Dnc(std::string ncfile, int nx, int ny, int nt)
 }
 
 
-extern "C" void create3dnc(int nx, int ny, int nt, double dx, double dy, double dtheta, double totaltime, double *xx, double *yy, double *theta, double * var)
+extern "C" void create3dnc(std::string outfile,int nx, int ny, int nt, double dx, double dy, double dtheta, double totaltime, double *xx, double *yy, double *theta, double * var)
 {
 	int status;
 	int ncid, xx_dim, yy_dim, time_dim, p_dim, tvar_id;
@@ -477,8 +477,31 @@ extern "C" void create3dnc(int nx, int ny, int nt, double dx, double dy, double 
 	nyy = ny;
 	ntt = nt;
 
+	std::vector<std::string> splittedstr;
+	std::string mainvarname, filename;
+	// first look fo an question mark
+	// If present then the user specified the main variable name, if absent we have to figure it out
+	splittedstr = split(outfile, '?');
+
+	if (splittedstr.size() > 1)
+	{
+		filename = splittedstr[0];
+		mainvarname = splittedstr[1];
+	}
+	else
+	{
+		// No user specified vaariables
+		//Else use a default name
+		filename = outfile;
+		mainvarname = "3Dvar";
+		
+
+
+	}
+
+
 	//create the netcdf dataset
-	status = nc_create("3Dvar.nc", NC_NOCLOBBER, &ncid);
+	status = nc_create(filename.c_str(), NC_NOCLOBBER, &ncid);
 
 	//Define dimensions: Name and length
 
@@ -505,7 +528,7 @@ extern "C" void create3dnc(int nx, int ny, int nt, double dx, double dy, double 
 	status = nc_def_var(ncid, "theta", NC_DOUBLE, 1, pdim, &tt_id);
 
 
-	status = nc_def_var(ncid, "3Dvar", NC_DOUBLE, 4, var_dimids, &tvar_id);
+	status = nc_def_var(ncid, mainvarname.c_str(), NC_DOUBLE, 4, var_dimids, &tvar_id);
 
 
 	status = nc_enddef(ncid);

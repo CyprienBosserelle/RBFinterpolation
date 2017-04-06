@@ -408,13 +408,13 @@ main(int argc, char** argv)
 				{
 					for (int n = 0; n < test.n_cols; n++)
 					{
-						results2d[xi+yi*nx+n*ny*nx]=RBFinterp(Param.ncenters, Param.ndim, Param.gamma, RBFcoeffGrid(span(0,304),span(yi,yi),span(xi,xi)), x, test.col(n));
+						results2d[xi+yi*nx+n*ny*nx]=RBFinterp(Param.ncenters, Param.ndim, Param.gamma, RBFcoeffGrid(span(),span(yi,yi),span(xi,xi)), x, test.col(n));
 
 					}
 				}
 			}
 			// Write 3d netcdf
-			create3dnc(nx, ny, nt, 1.0, 1.0, 1.0, 0.0, xx, yy, theta, results2d);
+			create3dnc(Param.outputfile, nx, ny, test.n_cols, 1.0, 1.0, 1.0, 0.0, xx, yy, theta, results2d);
 
 			free(results2d);
 		}
