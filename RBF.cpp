@@ -164,7 +164,11 @@ main(int argc, char** argv)
 	mat RBFcoeff;
 	cube RBFcoeffGrid;
 	cube yGrid;
-	double *xx, *yy, *theta;
+	double *xx = NULL;//used to reconstruct the netcdf files
+	double *yy = NULL;//used to reconstruct the netcdf files
+	double *theta; //used to reconstruct the netcdf files
+
+
 	//////////////////////////////////////////////////////
 	/////             Read Operational file          /////
 	//////////////////////////////////////////////////////
@@ -193,12 +197,9 @@ main(int argc, char** argv)
 	}
 	fs.close();
 
-	//Param.gamma = 0.2672;
-	//Param.centersfile = "test_MDA_300.dat";
-	//Param.trainingfile = "MauiBay_Shore_MDA_zs.txt";
-	//Param.inputfile = "Test_data_MB_Shore.txt";
-	//Param.isdir = 2;
-
+	///////////////////////////////////////////////////////////////////////
+	// SANITY CHECK ON THE PARAMETERS
+	//////////////////////////////////////////////////////////////////////
 
 	//sanity check
 	if (Param.outputfile.empty())
@@ -214,11 +215,11 @@ main(int argc, char** argv)
 
 	
 
+	////////////////////////////////////////////////////////////////////
+	// LOAD THE CENTERS OF THE RBF
+	////////////////////////////////////////////////////////////////////
+
 	
-
-
-
-
 	//load centers
 	x = readdatafile(Param.centersfile);
 	
@@ -230,9 +231,6 @@ main(int argc, char** argv)
 	// Calculate min and max for normalisation of centers and training data
 	std::vector<double> maxdimval, mindimval;
 	
-
-
-
 
 	for (int i = 0; i < Param.ndim; i++)
 	{
@@ -249,13 +247,7 @@ main(int argc, char** argv)
 
 	}
 	
-	//double maxHs = x(0, 1);
-	//double maxT = x(1, 1);
-	//double maxNM = x(3, 1);
-
-	//double minHs = x(0, 1);
-	//double minT = x(1, 1);
-	//double minNM = x(3, 1);
+	
 	
 	for (int n = 0; n < Param.ncenters; n++)
 	{
@@ -270,14 +262,6 @@ main(int argc, char** argv)
 		}
 
 
-
-		//maxHs = max(x(0, n), maxHs);
-		//maxT = max(x(1, n), maxT);
-		//maxNM = max(x(3, n), maxNM);
-
-		//minHs = min(x(0, n), minHs);
-		//minT = min(x(1, n), minT);
-		//minNM = min(x(3, n), minNM);
 	}
 	// Normalise the centers to min max
 
@@ -287,12 +271,12 @@ main(int argc, char** argv)
 		{
 			x(i, n) = (x(i, n) - mindimval[i]) / (maxdimval[i] - mindimval[i]);
 		}
-		//x(1, n) = (x(1, n) - minT) / (maxT - minT);
-		//x(2, n) = x(2, n)*datum::pi/180.0;
-		//x(3, n) = (x(3, n) - minNM) / (maxNM - minNM);
+	
 	}
 
-
+	////////////////////////////////////////////////////////////////////////////
+	// TRAIN THE RBF (THIS IS OPTIONAL IF THE TRAINING HAS PRIORILY BEEN DONE)
+	////////////////////////////////////////////////////////////////////////////
 
 	
 	if (Param.trainRBF == 1 && !Param.trainingfile.empty())
@@ -339,6 +323,11 @@ main(int argc, char** argv)
 			// 2D case
 			//read grid size
 			readgridncsize(Param.trainingfile, nx, ny, nt);
+
+			xx = (double *)malloc(nx*sizeof(double));
+			yy = (double *)malloc(ny*sizeof(double));
+			readxync(Param.trainingfile, xx, yy);
+
 			// init RBFCoeffGrid
 			//mat RBFcoeffGrid = zeros(nx, ny, nt);
 			yGrid = read3Dnc(Param.trainingfile, nx, ny, nt);
@@ -358,20 +347,10 @@ main(int argc, char** argv)
 			{
 				int ntheta = (Param.ncenters + Param.ndim + 1);
 				double *RBFtrained2d;
-				xx = (double *)malloc(nx*sizeof(double));
-				yy = (double *)malloc(ny*sizeof(double));
+				
 				theta = (double *)malloc(ntheta * sizeof(double));
 				RBFtrained2d = (double *)malloc(ntheta*nx*ny*sizeof(double));
 
-
-				for (int xi = 0; xi < nx; xi++)
-				{
-					xx[xi] = xi;
-				}
-				for (int yi = 0; yi < ny; yi++)
-				{
-					yy[yi] = yi;
-				}
 
 				for (int n = 0; n < ntheta; n++)
 				{
@@ -390,10 +369,8 @@ main(int argc, char** argv)
 				}
 
 				// Write 3d netcdf
-				create3dnc(Param.RBFcoefffile, nx, ny, ntheta, 1.0, 1.0, 1.0, 0.0, xx, yy, theta, RBFtrained2d);
+				create3dnc(Param.RBFcoefffile, nx, ny, ntheta,  xx, yy, theta, RBFtrained2d);
 				free(RBFtrained2d);
-				free(xx);
-				free(yy);
 				free(theta);
 			}
 
@@ -417,6 +394,10 @@ main(int argc, char** argv)
 			twodee = 1;
 			//read grid size
 			readgridncsize(Param.RBFcoefffile, nx, ny, nt);
+
+			xx = (double *)malloc(nx*sizeof(double));
+			yy = (double *)malloc(ny*sizeof(double));
+			readxync(Param.RBFcoefffile, xx, yy);
 			// init RBFCoeffGrid
 			//mat RBFcoeffGrid = zeros(nx, ny, nt);
 			RBFcoeffGrid = read3Dnc(Param.RBFcoefffile, nx, ny, nt);
@@ -474,18 +455,10 @@ main(int argc, char** argv)
 			double * results2d;
 
 			results2d = (double *)malloc(test.n_cols*nx*ny*sizeof(double));
-			xx = (double *)malloc(nx*sizeof(double));
-			yy = (double *)malloc(ny*sizeof(double));
+			
 			theta = (double *)malloc(test.n_cols*sizeof(double));
 
-			for (int xi = 0; xi < nx; xi++)
-			{
-				xx[xi] = xi;
-			}
-			for (int yi = 0; yi < ny; yi++)
-			{
-				yy[yi] = yi;
-			}
+			
 
 			for (int n = 0; n < test.n_cols; n++)
 			{
@@ -504,7 +477,7 @@ main(int argc, char** argv)
 				}
 			}
 			// Write 3d netcdf
-			create3dnc(Param.outputfile, nx, ny, test.n_cols, 1.0, 1.0, 1.0, 0.0, xx, yy, theta, results2d);
+			create3dnc(Param.outputfile, nx, ny, test.n_cols, xx, yy, theta, results2d);
 
 			free(results2d);
 			free(xx); free(yy); free(theta);

@@ -377,6 +377,112 @@ void readgridncsize(std::string ncfile, int &nx, int &ny, int &nt)
 
 
 }
+void readxync(std::string ncfile, double *&xx, double *&yy)
+{
+	//
+	//read the dimentions of grid, levels and time 
+	int status;
+	int ncid, ndimshh;
+
+	int varid;
+
+
+
+
+	int dimids[NC_MAX_VAR_DIMS];   /* dimension IDs */
+	char varname[NC_MAX_NAME + 1];
+	char xxvarname[NC_MAX_NAME + 1];
+	char yyvarname[NC_MAX_NAME + 1];
+	size_t  *ddimhh;
+	//char ncfile[]="ocean_ausnwsrstwq2.nc";
+
+	std::vector<std::string> splittedstr;
+	std::string mainvarname, filename;
+	// first look fo an question mark
+	// If present then the user specified the main variable name, if absent we have to figure it out
+	splittedstr = split(ncfile, '?');
+
+	if (splittedstr.size() > 1)
+	{
+		filename = splittedstr[0];
+		mainvarname = splittedstr[1];
+	}
+	else
+	{
+		// No user specified vaariables
+		//Else use a default name
+		filename = ncfile;
+		status = nc_open(filename.c_str(), NC_NOWRITE, &ncid);
+		if (status != NC_NOERR) handle_error(status);
+		int nvarinfile;
+
+		status = nc_inq_nvars(ncid, &nvarinfile);
+
+
+		if (nvarinfile == 1)
+		{
+			status = nc_inq_varname(ncid, nvarinfile - 1, varname);
+			mainvarname.assign(varname);
+
+		}
+		else
+		{
+			mainvarname = "RBFcoeff";
+		}
+		status = nc_close(ncid);
+
+
+	}
+
+
+
+	//Open NC file
+	printf("Open file\n");
+	status = nc_open(filename.c_str(), NC_NOWRITE, &ncid);
+	if (status != NC_NOERR) handle_error(status);
+
+	//printf(" %s...\n", hhvar);
+	status = nc_inq_varid(ncid, mainvarname.c_str(), &varid);
+	if (status != NC_NOERR)	handle_error(status);
+
+
+
+	status = nc_inq_varndims(ncid, varid, &ndimshh);
+	if (status != NC_NOERR) handle_error(status);
+	//printf("hhVar:%d dims\n", ndimshh);
+
+	status = nc_inq_vardimid(ncid, varid, dimids);
+	if (status != NC_NOERR) handle_error(status);
+
+	
+	// now get the dim name and teh coresponding variable
+	int xdimid = dimids[ndimshh - 1];
+	int ydimid = dimids[ndimshh - 2];
+
+	int xvarid, yvarid;
+	size_t nnx, nny;
+
+	status = nc_inq_dim(ncid, xdimid, xxvarname,&nnx);
+	if (status != NC_NOERR) handle_error(status);
+
+	status = nc_inq_dim(ncid, ydimid, yyvarname, &nny);
+	if (status != NC_NOERR) handle_error(status);
+
+	status = nc_inq_varid(ncid, xxvarname, &xvarid);
+	if (status != NC_NOERR) handle_error(status);
+	
+	status = nc_inq_varid(ncid, yyvarname, &yvarid);
+	if (status != NC_NOERR) handle_error(status);
+
+	status = nc_get_var_double(ncid, xvarid, xx);
+	if (status != NC_NOERR) handle_error(status);
+
+	status = nc_get_var_double(ncid, yvarid, yy);
+	if (status != NC_NOERR) handle_error(status);
+	
+	
+}
+
 
 arma::cube read3Dnc(std::string ncfile, int nx, int ny, int nt)
 {
@@ -464,7 +570,7 @@ arma::cube read3Dnc(std::string ncfile, int nx, int ny, int nt)
 }
 
 
-extern "C" void create3dnc(std::string outfile,int nx, int ny, int nt, double dx, double dy, double dtheta, double totaltime, double *xx, double *yy, double *theta, double * var)
+extern "C" void create3dnc(std::string outfile,int nx, int ny, int nt, double *xx, double *yy, double *theta, double * var)
 {
 	int status;
 	int ncid, xx_dim, yy_dim, time_dim, p_dim, tvar_id;

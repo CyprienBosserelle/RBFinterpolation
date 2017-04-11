@@ -50,7 +50,6 @@ void readgridncsize(std::string ncfile, int &nx, int &ny, int &nt);
 arma::cube read3Dnc(std::string ncfile, int nx, int ny, int nt);
 void handle_error(int status);
 
-extern "C" void create3dnc(std::string outfile, int nx, int ny, int nt, double dx, double dy, double dtheta, double totaltime, double *xx, double *yy, double *theta, double * var);
-
-
+extern "C" void create3dnc(std::string outfile, int nx, int ny, int nt, double *xx, double *yy, double *theta, double * var);
+void readxync(std::string ncfile, double *&xx, double *&yy);
 #endif
