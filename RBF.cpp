@@ -150,11 +150,21 @@ main(int argc, char** argv)
 	Param Param;
 
 
+	vector<double> results;
+
+
 	mat x, y;
+	mat test;
 	int twodee = 0;
 	int nx = 1;
 	int ny = 1;
 	int nt; //
+
+
+	mat RBFcoeff;
+	cube RBFcoeffGrid;
+	cube yGrid;
+	double *xx, *yy, *theta;
 	//////////////////////////////////////////////////////
 	/////             Read Operational file          /////
 	//////////////////////////////////////////////////////
@@ -208,8 +218,6 @@ main(int argc, char** argv)
 
 
 
-	vector<double> results;
-		
 
 	//load centers
 	x = readdatafile(Param.centersfile);
@@ -286,35 +294,116 @@ main(int argc, char** argv)
 
 
 
-	mat RBFcoeff;
-	cube RBFcoeffGrid;
+	
 	if (Param.trainRBF == 1 && !Param.trainingfile.empty())
 	{
-		// load the training data (should be 1 column with ncenter lines)
-		y = readdatafile(Param.trainingfile);
+		//first check if the input file is a nc file which impoly a training in 2D
+		//if not then it is a qucick 1D stuff
 
+		std::vector<std::string> extvec = split(Param.trainingfile, '.');
 
+		std::string fileext = extvec.back();
 
-		//train the RBF
-		RBFcoeff = RBFtrain(Param.ncenters, Param.ndim, Param.gamma, x, y);
-
-		if (Param.saveRBFcoeffs == 1)
+		int strcmp = fileext.compare(0, 2, "nc");
+		if (strcmp == 0)//IF 2D
 		{
-			//Convert mat to vector
-			std::vector<double> RBFcoeffvec;
-
-			for (int n = 0; n < RBFcoeff.n_rows; n++)
-			{
-				RBFcoeffvec.push_back(RBFcoeff(n));
-			}
-			//write data file
-			writedatafile(RBFcoeffvec, Param.RBFcoefffile);
+			twodee = 1;
 		}
+
+		if (twodee == 0)
+		{
+			//
+			// load the training data (should be 1 column with ncenter lines)
+			y = readdatafile(Param.trainingfile);
+
+
+
+			//train the RBF
+			RBFcoeff = RBFtrain(Param.ncenters, Param.ndim, Param.gamma, x, y);
+
+			if (Param.saveRBFcoeffs == 1)
+			{
+				//Convert mat to vector
+				std::vector<double> RBFcoeffvec;
+
+				for (int n = 0; n < RBFcoeff.n_rows; n++)
+				{
+					RBFcoeffvec.push_back(RBFcoeff(n));
+				}
+				//write data file
+				writedatafile(RBFcoeffvec, Param.RBFcoefffile);
+			}
+		}
+		else
+		{
+			// 2D case
+			//read grid size
+			readgridncsize(Param.trainingfile, nx, ny, nt);
+			// init RBFCoeffGrid
+			//mat RBFcoeffGrid = zeros(nx, ny, nt);
+			yGrid = read3Dnc(Param.trainingfile, nx, ny, nt);
+			RBFcoeffGrid = RBFcoeffGrid.zeros(Param.ncenters + Param.ndim + 1, ny, nx);
+			for (int xi = 0; xi < nx; xi++)
+			{
+				for (int yi = 0; yi < ny; yi++)
+				{
+					y = yGrid(span(), span(yi, yi), span(xi, xi));
+					RBFcoeff = RBFtrain(Param.ncenters, Param.ndim, Param.gamma, x, y.t());
+					RBFcoeffGrid(span(), span(yi, yi), span(xi, xi)) = RBFcoeff;
+
+				}
+			}
+			
+			if (Param.saveRBFcoeffs == 1)
+			{
+				int ntheta = (Param.ncenters + Param.ndim + 1);
+				double *RBFtrained2d;
+				xx = (double *)malloc(nx*sizeof(double));
+				yy = (double *)malloc(ny*sizeof(double));
+				theta = (double *)malloc(ntheta * sizeof(double));
+				RBFtrained2d = (double *)malloc(ntheta*nx*ny*sizeof(double));
+
+
+				for (int xi = 0; xi < nx; xi++)
+				{
+					xx[xi] = xi;
+				}
+				for (int yi = 0; yi < ny; yi++)
+				{
+					yy[yi] = yi;
+				}
+
+				for (int n = 0; n < ntheta; n++)
+				{
+					theta[n] = n;
+				}
+				for (int xi = 0; xi < nx; xi++)
+				{
+					for (int yi = 0; yi < ny; yi++)
+					{
+						for (int ti = 0; ti < ntheta; ti++)
+						{
+							//
+							RBFtrained2d[xi + yi*nx + ti*ny*nx] = RBFcoeffGrid(ti, yi, xi);
+						}
+					}
+				}
+
+				// Write 3d netcdf
+				create3dnc(Param.RBFcoefffile, nx, ny, ntheta, 1.0, 1.0, 1.0, 0.0, xx, yy, theta, RBFtrained2d);
+				free(RBFtrained2d);
+				free(xx);
+				free(yy);
+				free(theta);
+			}
+
+		}
+		
 		
 
 		
 	}
-	else
+	else //No training i.e. we already have RBF coeffiscient in a input
 	{
 		// First look at the size of the grid 
 		
@@ -346,9 +435,10 @@ main(int argc, char** argv)
 
 	if (Param.interpRBF == 1 && !Param.inputfile.empty())
 	{
-		mat test;
+		
 		//Load the test data
 		test = readdatafile(Param.inputfile);
+		//test = test.t();
 		// Normalise the data to the centers max
 		for (int n = 0; n < test.n_cols; n++)
 		{
@@ -376,12 +466,12 @@ main(int argc, char** argv)
 			// write data file
 			writedatafile(results, Param.outputfile);
 		}
-		else
+		else //2D case
 		{
 			//
 			//cube resultsTD = zeros(RBFcoeffGrid.n_cols, RBFcoeffGrid.n_slices, test.n_cols);
 			//
-			double * results2d, *xx, *yy, *theta;
+			double * results2d;
 
 			results2d = (double *)malloc(test.n_cols*nx*ny*sizeof(double));
 			xx = (double *)malloc(nx*sizeof(double));
@@ -417,6 +507,7 @@ main(int argc, char** argv)
 			create3dnc(Param.outputfile, nx, ny, test.n_cols, 1.0, 1.0, 1.0, 0.0, xx, yy, theta, results2d);
 
 			free(results2d);
+			free(xx); free(yy); free(theta);
 		}
 	}
 	

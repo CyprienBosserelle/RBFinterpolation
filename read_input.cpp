@@ -356,9 +356,9 @@ void readgridncsize(std::string ncfile, int &nx, int &ny, int &nt)
 
 	if (ndimshh > 2)
 	{
-		nt = ddimhh[0];
-		ny = ddimhh[1];
-		nx = ddimhh[2];
+		nt = ddimhh[ndimshh-3];
+		ny = ddimhh[ndimshh-2];
+		nx = ddimhh[ndimshh-1];
 	}
 	else
 	{
