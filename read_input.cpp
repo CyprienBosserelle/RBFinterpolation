@@ -470,8 +470,8 @@ extern "C" void create3dnc(std::string outfile,int nx, int ny, int nt, double dx
 	int ncid, xx_dim, yy_dim, time_dim, p_dim, tvar_id;
 
 	size_t nxx, nyy, ntt;
-	static size_t start[] = { 0, 0, 0, 0 }; // start at first value 
-	static size_t count[] = { 1, nt, ny, nx };
+	static size_t start[] = { 0, 0, 0 }; // start at first value 
+	static size_t count[] = { nt, ny, nx };
 	int time_id, xx_id, yy_id, tt_id;	//
 	nxx = nx;
 	nyy = ny;
@@ -508,27 +508,27 @@ extern "C" void create3dnc(std::string outfile,int nx, int ny, int nt, double dx
 	status = nc_def_dim(ncid, "xx", nxx, &xx_dim);
 	status = nc_def_dim(ncid, "yy", nyy, &yy_dim);
 	status = nc_def_dim(ncid, "ntheta", ntt, &p_dim);
-	status = nc_def_dim(ncid, "time", NC_UNLIMITED, &time_dim);
-	int tdim[] = { time_dim };
+	//status = nc_def_dim(ncid, "time", NC_UNLIMITED, &time_dim);
+	//int tdim[] = { time_dim };
 	int xdim[] = { xx_dim };
 	int ydim[] = { yy_dim };
 	int pdim[] = { p_dim };
 
 	//define variables: Name, Type,...
-	int  var_dimids[4];
-	var_dimids[0] = time_dim;
-	var_dimids[1] = p_dim;
-	var_dimids[2] = yy_dim;
-	var_dimids[3] = xx_dim;
+	int  var_dimids[3];
+	//var_dimids[0] = time_dim;
+	var_dimids[0] = p_dim;
+	var_dimids[1] = yy_dim;
+	var_dimids[2] = xx_dim;
 
 
-	status = nc_def_var(ncid, "time", NC_DOUBLE, 1, tdim, &time_id);
+	//status = nc_def_var(ncid, "time", NC_DOUBLE, 1, tdim, &time_id);
 	status = nc_def_var(ncid, "xx", NC_DOUBLE, 1, xdim, &xx_id);
 	status = nc_def_var(ncid, "yy", NC_DOUBLE, 1, ydim, &yy_id);
 	status = nc_def_var(ncid, "theta", NC_DOUBLE, 1, pdim, &tt_id);
 
 
-	status = nc_def_var(ncid, mainvarname.c_str(), NC_DOUBLE, 4, var_dimids, &tvar_id);
+	status = nc_def_var(ncid, mainvarname.c_str(), NC_DOUBLE, 3, var_dimids, &tvar_id);
 
 
 	status = nc_enddef(ncid);
@@ -546,7 +546,7 @@ extern "C" void create3dnc(std::string outfile,int nx, int ny, int nt, double dx
 
 
 	//Provide values for variables
-	status = nc_put_var1_double(ncid, time_id, tst, &totaltime);
+	//status = nc_put_var1_double(ncid, time_id, tst, &totaltime);
 	status = nc_put_vara_double(ncid, xx_id, xstart, xcount, xx);
 	status = nc_put_vara_double(ncid, yy_id, ystart, ycount, yy);
 	status = nc_put_vara_double(ncid, tt_id, tstart, tcount, theta);
