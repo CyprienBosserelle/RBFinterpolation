@@ -509,7 +509,7 @@ main(int argc, char** argv)
 				} //end while
 				
 
-				Param.gamma = fx;
+				Param.gamma = xf;
 			}
 
 
