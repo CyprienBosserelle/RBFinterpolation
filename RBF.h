@@ -15,7 +15,7 @@
 
 struct Param{
 	//Input parameters
-	double gamma; // future this should be a vector
+	double gamma=0.0; // future this should be a vector
 	int ncenters;
 	int ndim;
 

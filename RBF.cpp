@@ -9,7 +9,16 @@ using namespace arma;
 
 
 
+double sign(double x)
+{
+	double y=0;
 
+	if (abs(x) > datum::eps)
+	{
+		y = x / abs(x);
+	}
+	return y;
+}
 
 
 
@@ -19,22 +28,13 @@ mat RBFgaussian(mat r, double gamma)
 	return exp(-0.5 * r % r / (gamma * gamma));
 }
 
-double calculateGamma(int ncenters, int ndim, mat r)
+double calculateGamma(int ncenters, int ndim, mat x)
 {
-	double variance = -1;
-	double gamma;
-	for (int i = 0; i < ncenters; ++i)
-	{
-		for (int j = i + 1; j < ncenters; ++j)
-		{
-			variance = max(variance, (double)r(i,0) * (double)r(j,0)); // Need to check
-		}
-	}
-		
-	variance *= (1.0 / ((double)ncenters));
-	gamma = (-1.0 / (2.0 * variance));
+	
+	//Not working
+	mat ep=pow(prod(max(x)-min(x))/ncenters,1.0/((double)ndim));
 
-	return gamma;
+	return (double)ep(0, 0);
 }
 
 /*double optimgamma(int ncenters, mat A0, mat RBFcoeff)
@@ -49,6 +49,64 @@ double calculateGamma(int ncenters, int ndim, mat r)
 
 
 }*/
+
+double costeps(int ncenters, int ndim, double ep, mat centersnorm, mat data)
+{
+	//ep is epsilon which means gamma
+	mat A(ncenters, ncenters);
+	mat r, t, o, P, X, B, b, RBFcoeff;
+	mat test, rr, s, f;
+
+	A.zeros();
+
+	for (int i = 0; i < ncenters; i++)
+	{
+		//
+		for (int j = 0; j <= i; j++)
+		{
+			//
+			r = norm(centersnorm.col(i) - centersnorm.col(j));
+
+			t = exp(-0.5 * r % r / (ep * ep));// is 1 by 1 yeah?
+
+			A(i, j) = t(0, 0);
+			A(j, i) = t(0, 0);
+		}
+	}
+
+	o = ones(ncenters, 1);
+
+	P = join_rows(o, centersnorm.t());
+
+	X = join_rows(A, P);
+
+	B = join_rows(P.t(), zeros(ndim + 1, ndim + 1));
+	A = join_cols(X, B);
+
+	//A.save("A_mat.txt", raw_ascii);
+
+	b = join_cols(data.t(), zeros(ndim + 1, 1));
+	//b.save("b_mat.txt", raw_ascii);
+
+	RBFcoeff = solve(A, b);
+
+	mat iA = A(span(0, ncenters - 1), span(0, ncenters - 1));
+	//iA.save("A1.txt", arma_ascii);
+	mat invA = pinv(iA,datum::eps,"std");
+
+	mat KK = data - RBFcoeff(ncenters);
+	for (int i = 0; i < ndim; i++)
+	{
+		KK = KK - RBFcoeff(ncenters + i + 1)*centersnorm.row(i);
+	}
+
+	mat ceps = (invA*trans(KK)) / diagvec(invA);
+	double yy = norm(ceps);
+
+	return yy;
+
+
+}
 
 mat RBFtrain(int ncenters, int ndim, double gamma, mat centersnorm, mat data)
 {
@@ -198,6 +256,10 @@ main(int argc, char** argv)
 	fs.close();
 
 	///////////////////////////////////////////////////////////////////////
+	// CALCULATE GAMMA ?
+	///////////////////////////////////////////////////////////////////////
+
+	///////////////////////////////////////////////////////////////////////
 	// SANITY CHECK ON THE PARAMETERS
 	//////////////////////////////////////////////////////////////////////
 
@@ -299,6 +361,156 @@ main(int argc, char** argv)
 			//
 			// load the training data (should be 1 column with ncenter lines)
 			y = readdatafile(Param.trainingfile);
+
+			///////////////////////////////////////////////////////////////////////
+			// CALCULATE GAMMA ?
+			///////////////////////////////////////////////////////////////////////
+			if (Param.gamma<=0.0)
+			{
+				double ming = 0.001;
+				double maxg = 0.900;
+				double c = 0.5*(3.0 - sqrt(5.0));
+				double a = ming;
+				double b = maxg;
+				double v = a + c*(b - a);
+				double w = v;
+				double xf = v;
+				double d = 0.0;
+				double e = 0.0;
+				double xx = xf;
+				double starteps = v;
+				double fx, fu;
+				fx= costeps(Param.ncenters, Param.ndim, starteps, x, y);
+
+				double fv = fx;
+				double fw = fx;
+				double xm = 0.5*(a + b);
+				double tol = 0.0001;
+				double tol1 = sqrt(datum::eps)*abs(xf) + tol / 3.0;
+				double tol2 = 2.0*tol1;
+
+				double r, p, q, si;
+
+				int gs = 1; //Parabolic fit by default
+				int iter = 0;
+				while (abs(xf - xm) > (tol2 - 0.5*(b - a)))
+				{
+					gs = 1;
+					//Test if a parabolic fit is possible
+					if (abs(e) > tol1)
+					{
+						//Parabolic fit
+						gs = 0;
+						r = (xf - w)*(fx - fv);
+						q = (xf - v)*(fx - fw);
+						p = (xf - v)*q - (xf - w)*r;
+						q = 2.0*(q - r);
+						if (q > 0.0)
+						{
+							p = -1.0 * p;
+						}
+						q = abs(q);
+						r = e;  e = d;
+						//Is the parabola acceptable
+						if ((abs(p) < abs(0.5*q*r)) && (p > q*(a - xf)) && (p < q*(b - xf)))
+						{
+							d = p / q;
+							xx = xf + d;
+							// f must not be evaluated too close to ax or bx
+							if (((xx - a) < tol2) || ((b - xx) < tol2))
+							{
+								si = sign(xm) + (((xm - xf) == 0.0) ? 1.0 : 0.0);
+								d = tol1*si;
+
+							}
+							
+
+						}
+						else
+						{
+							gs = 1;
+						}
+					}
+					if (gs == 1)
+					{
+						//A golden-section step is required
+						if (xf >= xm)
+						{
+							e = a - xf;
+						
+						}
+						else
+						{
+							e = b - xf;
+						}
+
+						d = c*e;
+						
+					}
+					//The function must not be evaluated too close to xf
+					si = sign(d) + ((d == 0) ? 1.0 : 0.0);
+					xx = xf + si * max(abs(d), tol1);
+					fu = costeps(Param.ncenters, Param.ndim, xx, x, y);
+
+					//Update a, b, v, w, x, xm, tol1, tol2
+					if (fu <= fx)
+					{
+						if (xx >= xf)
+						{
+							a = xf;
+						}
+						else
+						{
+							b = xf;
+						}
+						v = w;
+						fv = fw;
+						w = xf;
+						fw = fx;
+						xf = xx;
+						fx = fu;
+					}
+					else
+					{
+						if (xx < xf)
+						{
+							a = xx;
+						}
+						else
+						{
+							b = xx;
+						}
+						if ((fu <= fw) || (w == xf))
+						{
+							v = w;
+							fv = fw;
+							w = xx;
+							fw = fu;
+						}
+						else
+						{
+							if ((fu <= fv) || (v == xf) || (v == w))
+							{
+								v = xx;
+								fv = fu;
+							}
+						}
+						xm = 0.5*(a + b);
+						tol1 = sqrt(datum::eps)*abs(xf) + tol / 3.0;
+						tol2 = 2.0*tol1;
+					}
+					iter++;
+
+					//Need a Sanity break here
+					if (iter > 200)
+					{
+						break;
+					}
+				} //end while
+				
+
+				Param.gamma = fx;
+			}
 
 
 
