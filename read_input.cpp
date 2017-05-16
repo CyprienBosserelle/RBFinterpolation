@@ -570,14 +570,206 @@ arma::cube read3Dnc(std::string ncfile, int nx, int ny, int nt)
 }
 
 
-extern "C" void create3dnc(std::string outfile,int nx, int ny, int nt, double *xx, double *yy, double *theta, double * var)
+arma::mat read2Dnc(std::string ncfile, int nx, int ny)
+{
+	//read the dimentions of grid, levels and time 
+	int status;
+	int ncid, varid;
+
+	double * tmpdatastore;
+	tmpdatastore = (double *)malloc(nx*ny*sizeof(double));
+
+	int dimids[NC_MAX_VAR_DIMS];   /* dimension IDs */
+	char varname[NC_MAX_NAME + 1];
+	size_t  *ddimhh;
+	//char ncfile[]="ocean_ausnwsrstwq2.nc";
+
+	std::vector<std::string> splittedstr;
+	std::string mainvarname, filename;
+	// first look fo an question mark
+	// If present then the user specified the main variable name, if absent we have to figure it out
+	splittedstr = split(ncfile, '?');
+
+	if (splittedstr.size() > 1)
+	{
+		filename = splittedstr[0];
+		mainvarname = splittedstr[1];
+	}
+	else
+	{
+		// No user specified vaariables
+		//Else use a default name
+		filename = ncfile;
+		status = nc_open(filename.c_str(), NC_NOWRITE, &ncid);
+		if (status != NC_NOERR) handle_error(status);
+		int nvarinfile;
+
+		status = nc_inq_nvars(ncid, &nvarinfile);
+
+
+		if (nvarinfile == 1)
+		{
+			status = nc_inq_varname(ncid, nvarinfile - 1, varname);
+			mainvarname.assign(varname);
+
+		}
+		else
+		{
+			mainvarname = "z";
+		}
+		status = nc_close(ncid);
+
+
+	}
+
+
+
+	//Open NC file
+	printf("Open file\n");
+	status = nc_open(filename.c_str(), NC_NOWRITE, &ncid);
+	if (status != NC_NOERR) handle_error(status);
+
+	status = nc_inq_varid(ncid, mainvarname.c_str(), &varid);
+	if (status != NC_NOERR) handle_error(status);
+
+	status = nc_get_var_double(ncid, varid, tmpdatastore);
+	if (status != NC_NOERR) handle_error(status);
+
+	//restructure the data to the mat... So old school need to use the netcdf4 thing
+	arma::mat data;
+	data = arma::zeros( ny, nx);
+	for (int j = 0; j < ny; j++)
+		{
+			for (int i = 0; i < nx; i++)
+			{
+				data(j, i) = tmpdatastore[i + j*nx ];
+			}
+		}
+	
+
+
+	status = nc_close(ncid);
+	free(tmpdatastore);
+	return data;
+}
+
+
+
+extern "C" void create3dnc(std::string outfile, int nx, int ny, int nt, double *xx, double *yy, double *theta, double * var)
 {
 	int status;
-	int ncid, xx_dim, yy_dim, time_dim, p_dim, tvar_id;
+	int ncid, xx_dim, yy_dim, time_dim, p_dim, tvar_id, gvar_id;
 
 	size_t nxx, nyy, ntt;
 	static size_t start[] = { 0, 0, 0 }; // start at first value 
 	static size_t count[] = { nt, ny, nx };
+
+	static size_t Gstart[] = { 0, 0 }; // start at first value 
+	//static size_t Gcount[] = { ny, nx };
+
+	int time_id, xx_id, yy_id, tt_id;	//
+	nxx = nx;
+	nyy = ny;
+	ntt = nt;
+
+	std::vector<std::string> splittedstr;
+	std::string mainvarname, filename;
+	// first look fo an question mark
+	// If present then the user specified the main variable name, if absent we have to figure it out
+	splittedstr = split(outfile, '?');
+
+	if (splittedstr.size() > 1)
+	{
+		filename = splittedstr[0];
+		mainvarname = splittedstr[1];
+	}
+	else
+	{
+		// No user specified vaariables
+		//Else use a default name
+		filename = outfile;
+		mainvarname = "3Dvar";
+
+
+
+	}
+
+
+	//create the netcdf dataset
+	status = nc_create(filename.c_str(), NC_NOCLOBBER, &ncid);
+
+	//Define dimensions: Name and length
+
+	status = nc_def_dim(ncid, "xx", nxx, &xx_dim);
+	status = nc_def_dim(ncid, "yy", nyy, &yy_dim);
+	status = nc_def_dim(ncid, "ntheta", ntt, &p_dim);
+	//status = nc_def_dim(ncid, "time", NC_UNLIMITED, &time_dim);
+	//int tdim[] = { time_dim };
+	int xdim[] = { xx_dim };
+	int ydim[] = { yy_dim };
+	int pdim[] = { p_dim };
+
+	//define variables: Name, Type,...
+	int  var_dimids[3];
+	int gam_dimids[2];
+
+	//var_dimids[0] = time_dim;
+	var_dimids[0] = p_dim;
+	var_dimids[1] = yy_dim;
+	var_dimids[2] = xx_dim;
+
+	gam_dimids[0] = yy_dim;
+	gam_dimids[1] = xx_dim;
+
+	//status = nc_def_var(ncid, "time", NC_DOUBLE, 1, tdim, &time_id);
+	status = nc_def_var(ncid, "xx", NC_DOUBLE, 1, xdim, &xx_id);
+	status = nc_def_var(ncid, "yy", NC_DOUBLE, 1, ydim, &yy_id);
+	status = nc_def_var(ncid, "theta", NC_DOUBLE, 1, pdim, &tt_id);
+
+
+	status = nc_def_var(ncid, mainvarname.c_str(), NC_DOUBLE, 3, var_dimids, &tvar_id);
+
+	status = nc_enddef(ncid);
+
+
+	static size_t tst[] = { 0 };
+	static size_t xstart[] = { 0 }; // start at first value 
+	static size_t xcount[] = { nx };
+
+	static size_t ystart[] = { 0 }; // start at first value 
+	static size_t ycount[] = { ny };
+
+	static size_t tstart[] = { 0 }; // start at first value 
+	static size_t tcount[] = { nt };
+
+
+	//Provide values for variables
+	//status = nc_put_var1_double(ncid, time_id, tst, &totaltime);
+	status = nc_put_vara_double(ncid, xx_id, xstart, xcount, xx);
+	status = nc_put_vara_double(ncid, yy_id, ystart, ycount, yy);
+	status = nc_put_vara_double(ncid, tt_id, tstart, tcount, theta);
+
+	status = nc_put_vara_double(ncid, tvar_id, start, count, var);
+	//status = nc_put_vara_double(ncid, gvar_id, Gstart, Gcount, Gvar);
+	status = nc_close(ncid);
+
+}
+
+
+
+
+extern "C" void createTrainingnc(std::string outfile,int nx, int ny, int nt, double *xx, double *yy, double *theta, double * var, double * Gvar)
+{
+	int status;
+	int ncid, xx_dim, yy_dim, time_dim, p_dim, tvar_id, gvar_id;
+
+	size_t nxx, nyy, ntt;
+	static size_t start[] = { 0, 0, 0 }; // start at first value 
+	static size_t count[] = { nt, ny, nx };
+
+	static size_t Gstart[] = { 0, 0 }; // start at first value 
+	static size_t Gcount[] = { ny, nx };
+
 	int time_id, xx_id, yy_id, tt_id;	//
 	nxx = nx;
 	nyy = ny;
@@ -622,11 +814,15 @@ extern "C" void create3dnc(std::string outfile,int nx, int ny, int nt, double *x
 
 	//define variables: Name, Type,...
 	int  var_dimids[3];
+	int gam_dimids[2];
+
 	//var_dimids[0] = time_dim;
 	var_dimids[0] = p_dim;
 	var_dimids[1] = yy_dim;
 	var_dimids[2] = xx_dim;
 
+	gam_dimids[0] = yy_dim;
+	gam_dimids[1] = xx_dim;
 
 	//status = nc_def_var(ncid, "time", NC_DOUBLE, 1, tdim, &time_id);
 	status = nc_def_var(ncid, "xx", NC_DOUBLE, 1, xdim, &xx_id);
@@ -635,7 +831,7 @@ extern "C" void create3dnc(std::string outfile,int nx, int ny, int nt, double *x
 
 
 	status = nc_def_var(ncid, mainvarname.c_str(), NC_DOUBLE, 3, var_dimids, &tvar_id);
-
+	status = nc_def_var(ncid, "gamma", NC_DOUBLE, 2, gam_dimids, &gvar_id);
 
 	status = nc_enddef(ncid);
 
@@ -658,6 +854,7 @@ extern "C" void create3dnc(std::string outfile,int nx, int ny, int nt, double *x
 	status = nc_put_vara_double(ncid, tt_id, tstart, tcount, theta);
 
 	status = nc_put_vara_double(ncid, tvar_id, start, count, var);
+	status = nc_put_vara_double(ncid, gvar_id, Gstart, Gcount, Gvar);
 	status = nc_close(ncid);
 
 }

@@ -37,18 +37,7 @@ double calculateGamma(int ncenters, int ndim, mat x)
 	return (double)ep(0, 0);
 }
 
-/*double optimgamma(int ncenters, mat A0, mat RBFcoeff)
-{
-	//From:
-	// Alex Chirokov, alex.chirokov@gmail.com
-	// 16 Feb 2006
-	mat A, invA;
 
-	A = A0(span(0, ncenters - 1), span(0, ncenters - 1));
-	invA = pinv(A);
-
-
-}*/
 
 double costeps(int ncenters, int ndim, double ep, mat centersnorm, mat data)
 {
@@ -105,6 +94,155 @@ double costeps(int ncenters, int ndim, double ep, mat centersnorm, mat data)
 
 	return yy;
 
+
+}
+
+double findgamma(int ncenters, int ndim, mat x, mat y)
+{
+	// Iterative method to calculate the best gamma
+	double ming = 0.001;
+	double maxg = 0.900;
+	double c = 0.5*(3.0 - sqrt(5.0));
+	double a = ming;
+	double b = maxg;
+	double v = a + c*(b - a);
+	double w = v;
+	double xf = v;
+	double d = 0.0;
+	double e = 0.0;
+	double xx = xf;
+	double starteps = v;
+	double fx, fu;
+	fx = costeps(ncenters, ndim, starteps, x, y);
+
+	double fv = fx;
+	double fw = fx;
+	double xm = 0.5*(a + b);
+	double tol = 0.0001;
+	double tol1 = sqrt(datum::eps)*abs(xf) + tol / 3.0;
+	double tol2 = 2.0*tol1;
+
+	double r, p, q, si;
+
+	int gs = 1; //Parabolic fit by default
+	int iter = 0;
+	while (abs(xf - xm) > (tol2 - 0.5*(b - a)))
+	{
+		gs = 1;
+		//Test if a parabolic fit is possible
+		if (abs(e) > tol1)
+		{
+			//Parabolic fit
+			gs = 0;
+			r = (xf - w)*(fx - fv);
+			q = (xf - v)*(fx - fw);
+			p = (xf - v)*q - (xf - w)*r;
+			q = 2.0*(q - r);
+			if (q > 0.0)
+			{
+				p = -1.0 * p;
+			}
+			q = abs(q);
+			r = e;  e = d;
+			//Is the parabola acceptable
+			if ((abs(p) < abs(0.5*q*r)) && (p > q*(a - xf)) && (p < q*(b - xf)))
+			{
+				d = p / q;
+				xx = xf + d;
+				// f must not be evaluated too close to ax or bx
+				if (((xx - a) < tol2) || ((b - xx) < tol2))
+				{
+					si = sign(xm) + (((xm - xf) == 0.0) ? 1.0 : 0.0);
+					d = tol1*si;
+
+				}
+
+
+			}
+			else
+			{
+				gs = 1;
+			}
+		}
+		if (gs == 1)
+		{
+			//A golden-section step is required
+			if (xf >= xm)
+			{
+				e = a - xf;
+
+			}
+			else
+			{
+				e = b - xf;
+			}
+
+			d = c*e;
+
+		}
+		//The function must not be evaluated too close to xf
+		si = sign(d) + ((d == 0) ? 1.0 : 0.0);
+		xx = xf + si * max(abs(d), tol1);
+		fu = costeps(ncenters, ndim, xx, x, y);
+
+		//Update a, b, v, w, x, xm, tol1, tol2
+		if (fu <= fx)
+		{
+			if (xx >= xf)
+			{
+				a = xf;
+			}
+			else
+			{
+				b = xf;
+			}
+			v = w;
+			fv = fw;
+			w = xf;
+			fw = fx;
+			xf = xx;
+			fx = fu;
+		}
+		else
+		{
+			if (xx < xf)
+			{
+				a = xx;
+			}
+			else
+			{
+				b = xx;
+			}
+			if ((fu <= fw) || (w == xf))
+			{
+				v = w;
+				fv = fw;
+				w = xx;
+				fw = fu;
+			}
+			else
+			{
+				if ((fu <= fv) || (v == xf) || (v == w))
+				{
+					v = xx;
+					fv = fu;
+				}
+			}
+			xm = 0.5*(a + b);
+			tol1 = sqrt(datum::eps)*abs(xf) + tol / 3.0;
+			tol2 = 2.0*tol1;
+		}
+		iter++;
+
+		//Need a Sanity break here
+		if (iter > 200)
+		{
+			break;
+		}
+	} //end while
+
+
+	return xf;
 
 }
 
@@ -222,6 +360,7 @@ main(int argc, char** argv)
 	mat RBFcoeff;
 	cube RBFcoeffGrid;
 	cube yGrid;
+	mat gammaGrid;
 	double *xx = NULL;//used to reconstruct the netcdf files
 	double *yy = NULL;//used to reconstruct the netcdf files
 	double *theta; //used to reconstruct the netcdf files
@@ -273,7 +412,16 @@ main(int argc, char** argv)
 	{
 		Param.RBFcoefffile = "RBFcoeff.txt";
 	}
-
+	// If gammafile is set then overrule gamma value
+	if (!Param.gammafile.empty())
+	{
+		Param.gamma = 0;
+	}
+	// If gammafile is set then overrule gamma value
+	if (Param.gammafile.empty() && Param.gamma<=0.0)
+	{
+		Param.gammafile = Param.RBFcoefffile;
+	}
 
 	
 
@@ -367,149 +515,7 @@ main(int argc, char** argv)
 			///////////////////////////////////////////////////////////////////////
 			if (Param.gamma<=0.0)
 			{
-				double ming = 0.001;
-				double maxg = 0.900;
-				double c = 0.5*(3.0 - sqrt(5.0));
-				double a = ming;
-				double b = maxg;
-				double v = a + c*(b - a);
-				double w = v;
-				double xf = v;
-				double d = 0.0;
-				double e = 0.0;
-				double xx = xf;
-				double starteps = v;
-				double fx, fu;
-				fx= costeps(Param.ncenters, Param.ndim, starteps, x, y);
-
-				double fv = fx;
-				double fw = fx;
-				double xm = 0.5*(a + b);
-				double tol = 0.0001;
-				double tol1 = sqrt(datum::eps)*abs(xf) + tol / 3.0;
-				double tol2 = 2.0*tol1;
-
-				double r, p, q, si;
-
-				int gs = 1; //Parabolic fit by default
-				int iter = 0;
-				while (abs(xf - xm) > (tol2 - 0.5*(b - a)))
-				{
-					gs = 1;
-					//Test if a parabolic fit is possible
-					if (abs(e) > tol1)
-					{
-						//Parabolic fit
-						gs = 0;
-						r = (xf - w)*(fx - fv);
-						q = (xf - v)*(fx - fw);
-						p = (xf - v)*q - (xf - w)*r;
-						q = 2.0*(q - r);
-						if (q > 0.0)
-						{
-							p = -1.0 * p;
-						}
-						q = abs(q);
-						r = e;  e = d;
-						//Is the parabola acceptable
-						if ((abs(p) < abs(0.5*q*r)) && (p > q*(a - xf)) && (p < q*(b - xf)))
-						{
-							d = p / q;
-							xx = xf + d;
-							// f must not be evaluated too close to ax or bx
-							if (((xx - a) < tol2) || ((b - xx) < tol2))
-							{
-								si = sign(xm) + (((xm - xf) == 0.0) ? 1.0 : 0.0);
-								d = tol1*si;
-
-							}
-							
-
-						}
-						else
-						{
-							gs = 1;
-						}
-					}
-					if (gs == 1)
-					{
-						//A golden-section step is required
-						if (xf >= xm)
-						{
-							e = a - xf;
-						
-						}
-						else
-						{
-							e = b - xf;
-						}
-
-						d = c*e;
-						
-					}
-					//The function must not be evaluated too close to xf
-					si = sign(d) + ((d == 0) ? 1.0 : 0.0);
-					xx = xf + si * max(abs(d), tol1);
-					fu = costeps(Param.ncenters, Param.ndim, xx, x, y);
-
-					//Update a, b, v, w, x, xm, tol1, tol2
-					if (fu <= fx)
-					{
-						if (xx >= xf)
-						{
-							a = xf;
-						}
-						else
-						{
-							b = xf;
-						}
-						v = w;
-						fv = fw;
-						w = xf;
-						fw = fx;
-						xf = xx;
-						fx = fu;
-					}
-					else
-					{
-						if (xx < xf)
-						{
-							a = xx;
-						}
-						else
-						{
-							b = xx;
-						}
-						if ((fu <= fw) || (w == xf))
-						{
-							v = w;
-							fv = fw;
-							w = xx;
-							fw = fu;
-						}
-						else
-						{
-							if ((fu <= fv) || (v == xf) || (v == w))
-							{
-								v = xx;
-								fv = fu;
-							}
-						}
-						xm = 0.5*(a + b);
-						tol1 = sqrt(datum::eps)*abs(xf) + tol / 3.0;
-						tol2 = 2.0*tol1;
-					}
-					iter++;
-
-					//Need a Sanity break here
-					if (iter > 200)
-					{
-						break;
-					}
-				} //end while
-				
-
-				Param.gamma = xf;
+				Param.gamma = findgamma(Param.ncenters, Param.ndim, x, y);
 			}
 
 
@@ -544,12 +550,27 @@ main(int argc, char** argv)
 			//mat RBFcoeffGrid = zeros(nx, ny, nt);
 			yGrid = read3Dnc(Param.trainingfile, nx, ny, nt);
 			RBFcoeffGrid = RBFcoeffGrid.zeros(Param.ncenters + Param.ndim + 1, ny, nx);
+			gammaGrid = gammaGrid.zeros(nx, ny);
+
 			for (int xi = 0; xi < nx; xi++)
 			{
 				for (int yi = 0; yi < ny; yi++)
 				{
+
+					
+
 					y = yGrid(span(), span(yi, yi), span(xi, xi));
-					RBFcoeff = RBFtrain(Param.ncenters, Param.ndim, Param.gamma, x, y.t());
+
+					if (Param.gamma <= 0.0)
+					{
+						gammaGrid(xi, yi) = findgamma(Param.ncenters, Param.ndim, x, y.t());
+					}
+					else
+					{
+						gammaGrid(xi, yi) = Param.gamma;
+					}
+
+					RBFcoeff = RBFtrain(Param.ncenters, Param.ndim, gammaGrid(xi, yi), x, y.t());
 					RBFcoeffGrid(span(), span(yi, yi), span(xi, xi)) = RBFcoeff;
 
 				}
@@ -558,11 +579,11 @@ main(int argc, char** argv)
 			if (Param.saveRBFcoeffs == 1)
 			{
 				int ntheta = (Param.ncenters + Param.ndim + 1);
-				double *RBFtrained2d;
+				double *RBFtrained2d, *gamma2d;
 				
 				theta = (double *)malloc(ntheta * sizeof(double));
 				RBFtrained2d = (double *)malloc(ntheta*nx*ny*sizeof(double));
-
+				gamma2d = (double *)malloc(nx*ny*sizeof(double));
 
 				for (int n = 0; n < ntheta; n++)
 				{
@@ -572,6 +593,7 @@ main(int argc, char** argv)
 				{
 					for (int yi = 0; yi < ny; yi++)
 					{
+						gamma2d[xi + yi*nx] = gammaGrid(xi, yi);
 						for (int ti = 0; ti < ntheta; ti++)
 						{
 							//
@@ -581,7 +603,7 @@ main(int argc, char** argv)
 				}
 
 				// Write 3d netcdf
-				create3dnc(Param.RBFcoefffile, nx, ny, ntheta,  xx, yy, theta, RBFtrained2d);
+				createTrainingnc(Param.RBFcoefffile, nx, ny, ntheta,  xx, yy, theta, RBFtrained2d,gamma2d);
 				free(RBFtrained2d);
 				free(theta);
 			}
@@ -592,7 +614,7 @@ main(int argc, char** argv)
 
 		
 	}
-	else //No training i.e. we already have RBF coeffiscient in a input
+	else //No training i.e. we already have RBF coeffiscient and gamma in a input
 	{
 		// First look at the size of the grid 
 		
@@ -613,7 +635,7 @@ main(int argc, char** argv)
 			// init RBFCoeffGrid
 			//mat RBFcoeffGrid = zeros(nx, ny, nt);
 			RBFcoeffGrid = read3Dnc(Param.RBFcoefffile, nx, ny, nt);
-
+			gammaGrid = read2Dnc(Param.gammafile, nx, ny);
 			
 			
 		}

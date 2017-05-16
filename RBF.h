@@ -34,6 +34,7 @@ struct Param{
 	std::string centersfile;
 	std::string trainingfile;
 	std::string RBFcoefffile;
+	std::string gammafile;
 	std::string inputfile;
 	std::string outputfile;
 
@@ -48,8 +49,10 @@ arma::mat readdatafile(std::string filename);
 void writedatafile(std::vector<double> outputdata, std::string outputfile);
 void readgridncsize(std::string ncfile, int &nx, int &ny, int &nt);
 arma::cube read3Dnc(std::string ncfile, int nx, int ny, int nt);
+arma::mat read2Dnc(std::string ncfile, int nx, int ny);
 void handle_error(int status);
 
 extern "C" void create3dnc(std::string outfile, int nx, int ny, int nt, double *xx, double *yy, double *theta, double * var);
+extern "C" void createTrainingnc(std::string outfile, int nx, int ny, int nt, double *xx, double *yy, double *theta, double * var, double * Gvar);
 void readxync(std::string ncfile, double *&xx, double *&yy);
 #endif
