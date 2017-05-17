@@ -326,7 +326,7 @@ void readgridncsize(std::string ncfile, int &nx, int &ny, int &nt)
 
 
 	//Open NC file
-	printf("Open file\n");
+	//printf("Open file\n");
 	status = nc_open(filename.c_str(), NC_NOWRITE, &ncid);
 	if (status != NC_NOERR) handle_error(status);
 
@@ -437,7 +437,7 @@ void readxync(std::string ncfile, double *&xx, double *&yy)
 
 
 	//Open NC file
-	printf("Open file\n");
+	//printf("Open file\n");
 	status = nc_open(filename.c_str(), NC_NOWRITE, &ncid);
 	if (status != NC_NOERR) handle_error(status);
 
@@ -539,7 +539,7 @@ arma::cube read3Dnc(std::string ncfile, int nx, int ny, int nt)
 
 
 	//Open NC file
-	printf("Open file\n");
+	//printf("Open file\n");
 	status = nc_open(filename.c_str(), NC_NOWRITE, &ncid);
 	if (status != NC_NOERR) handle_error(status);
 
@@ -625,7 +625,7 @@ arma::mat read2Dnc(std::string ncfile, int nx, int ny)
 
 
 	//Open NC file
-	printf("Open file\n");
+	//printf("Open file\n");
 	status = nc_open(filename.c_str(), NC_NOWRITE, &ncid);
 	if (status != NC_NOERR) handle_error(status);
 

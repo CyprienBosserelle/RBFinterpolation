@@ -369,7 +369,7 @@ main(int argc, char** argv)
 	//////////////////////////////////////////////////////
 	/////             Read Operational file          /////
 	//////////////////////////////////////////////////////
-
+	printf("Reading Operationnal file...");
 	std::ifstream fs("RBF_param.txt");
 
 	if (fs.fail()){
@@ -394,6 +394,8 @@ main(int argc, char** argv)
 	}
 	fs.close();
 
+
+	printf(" ...done!\n");
 	///////////////////////////////////////////////////////////////////////
 	// CALCULATE GAMMA ?
 	///////////////////////////////////////////////////////////////////////
@@ -428,7 +430,7 @@ main(int argc, char** argv)
 	////////////////////////////////////////////////////////////////////
 	// LOAD THE CENTERS OF THE RBF
 	////////////////////////////////////////////////////////////////////
-
+	printf("Reading Center file...");
 	
 	//load centers
 	x = readdatafile(Param.centersfile);
@@ -437,7 +439,7 @@ main(int argc, char** argv)
 
 	Param.ncenters = x.n_cols;
 
-	
+	printf("...Normalising data...");
 	// Calculate min and max for normalisation of centers and training data
 	std::vector<double> maxdimval, mindimval;
 	
@@ -483,7 +485,7 @@ main(int argc, char** argv)
 		}
 	
 	}
-
+	printf("Done\n");
 	////////////////////////////////////////////////////////////////////////////
 	// TRAIN THE RBF (THIS IS OPTIONAL IF THE TRAINING HAS PRIORILY BEEN DONE)
 	////////////////////////////////////////////////////////////////////////////
@@ -493,7 +495,7 @@ main(int argc, char** argv)
 	{
 		//first check if the input file is a nc file which impoly a training in 2D
 		//if not then it is a qucick 1D stuff
-
+		printf("Reading Training data file...");
 		std::vector<std::string> extvec = split(Param.trainingfile, '.');
 
 		std::string fileext = extvec.back();
@@ -506,25 +508,30 @@ main(int argc, char** argv)
 
 		if (twodee == 0)
 		{
+			printf("1D...");
 			//
 			// load the training data (should be 1 column with ncenter lines)
 			y = readdatafile(Param.trainingfile);
-
+			printf("Done\n");
 			///////////////////////////////////////////////////////////////////////
 			// CALCULATE GAMMA ?
 			///////////////////////////////////////////////////////////////////////
 			if (Param.gamma<=0.0)
 			{
+				printf("Calulate Gamma...");
 				Param.gamma = findgamma(Param.ncenters, Param.ndim, x, y);
+
+				printf(" Gamma=%5.5f  ...Done\n",Param.gamma);
 			}
 
 
-
+			printf("Training RBFcoeff...");
 			//train the RBF
 			RBFcoeff = RBFtrain(Param.ncenters, Param.ndim, Param.gamma, x, y);
-
+			printf("Done\n");
 			if (Param.saveRBFcoeffs == 1)
 			{
+				printf("Saving RBF coefficient...");
 				//Convert mat to vector
 				std::vector<double> RBFcoeffvec;
 
@@ -534,12 +541,14 @@ main(int argc, char** argv)
 				}
 				//write data file
 				writedatafile(RBFcoeffvec, Param.RBFcoefffile);
+				printf("Done\n");
 			}
 		}
 		else
 		{
 			// 2D case
 			//read grid size
+			printf("2D...");
 			readgridncsize(Param.trainingfile, nx, ny, nt);
 
 			xx = (double *)malloc(nx*sizeof(double));
@@ -549,15 +558,18 @@ main(int argc, char** argv)
 			// init RBFCoeffGrid
 			//mat RBFcoeffGrid = zeros(nx, ny, nt);
 			yGrid = read3Dnc(Param.trainingfile, nx, ny, nt);
+
+			printf("Done\n");
 			RBFcoeffGrid = RBFcoeffGrid.zeros(Param.ncenters + Param.ndim + 1, ny, nx);
 			gammaGrid = gammaGrid.zeros(nx, ny);
-
+			printf("Training RBFcoeff...");
 			for (int xi = 0; xi < nx; xi++)
 			{
 				for (int yi = 0; yi < ny; yi++)
 				{
 
-					
+					std::cout << "xx,yy=" << xi << "(" << nx << ")," << yi << "(" << ny << ")" << '\r';
+					std::cout.flush();
 
 					y = yGrid(span(), span(yi, yi), span(xi, xi));
 
@@ -575,9 +587,11 @@ main(int argc, char** argv)
 
 				}
 			}
+			printf("Done\n");
 			
 			if (Param.saveRBFcoeffs == 1)
 			{
+				printf("Saving RBF coefficient and Gamma...");
 				int ntheta = (Param.ncenters + Param.ndim + 1);
 				double *RBFtrained2d, *gamma2d;
 				
@@ -605,7 +619,9 @@ main(int argc, char** argv)
 				// Write 3d netcdf
 				createTrainingnc(Param.RBFcoefffile, nx, ny, ntheta,  xx, yy, theta, RBFtrained2d,gamma2d);
 				free(RBFtrained2d);
+				free(gamma2d);
 				free(theta);
+				printf("Done\n");
 			}
 
 		}
@@ -617,7 +633,7 @@ main(int argc, char** argv)
 	else //No training i.e. we already have RBF coeffiscient and gamma in a input
 	{
 		// First look at the size of the grid 
-		
+		printf("Reading RBFcoeff and gamma file...");
 		std::vector<std::string> extvec = split(Param.RBFcoefffile, '.');
 
 		std::string fileext = extvec.back();
@@ -645,11 +661,13 @@ main(int argc, char** argv)
 			RBFcoeff = readdatafile(Param.RBFcoefffile);
 			RBFcoeff = RBFcoeff.t(); // Because the subroutine reads this the wrong way around...
 		}
+		printf("Done\n");
 		
 	}
 
 	if (Param.interpRBF == 1 && !Param.inputfile.empty())
 	{
+		printf("Interpolate data...");
 		
 		//Load the test data
 		test = readdatafile(Param.inputfile);
@@ -669,6 +687,7 @@ main(int argc, char** argv)
 
 		if (twodee == 0)
 		{
+			printf("1D...");
 			//In this case 
 			// Do the interpolation
 
@@ -677,12 +696,13 @@ main(int argc, char** argv)
 				results.push_back(RBFinterp(Param.ncenters, Param.ndim, Param.gamma, RBFcoeff, x, test.col(n)));
 
 			}
-
+			printf("Saving...");
 			// write data file
 			writedatafile(results, Param.outputfile);
 		}
 		else //2D case
 		{
+			printf("2D...");
 			//
 			//cube resultsTD = zeros(RBFcoeffGrid.n_cols, RBFcoeffGrid.n_slices, test.n_cols);
 			//
@@ -703,6 +723,8 @@ main(int argc, char** argv)
 			{
 				for (int yi = 0; yi < ny; yi++)
 				{
+					std::cout << "xx,yy=" << xi << "(" << nx << ")," << yi << "(" << ny << ")" << '\r';
+					std::cout.flush();
 					for (int n = 0; n < test.n_cols; n++)
 					{
 						results2d[xi+yi*nx+n*ny*nx]=RBFinterp(Param.ncenters, Param.ndim, Param.gamma, RBFcoeffGrid(span(),span(yi,yi),span(xi,xi)), x, test.col(n));
@@ -710,12 +732,14 @@ main(int argc, char** argv)
 					}
 				}
 			}
+			printf("Saving...");
 			// Write 3d netcdf
 			create3dnc(Param.outputfile, nx, ny, test.n_cols, xx, yy, theta, results2d);
 
 			free(results2d);
 			free(xx); free(yy); free(theta);
 		}
+		printf("Done\n");
 	}
 	
 
