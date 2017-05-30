@@ -702,11 +702,13 @@ main(int argc, char** argv)
 		}
 		else //2D case
 		{
-			printf("2D...");
+			printf("2D...\n");
 			//
 			//cube resultsTD = zeros(RBFcoeffGrid.n_cols, RBFcoeffGrid.n_slices, test.n_cols);
 			//
 			double * results2d;
+
+			double gamma;
 
 			results2d = (double *)malloc(test.n_cols*nx*ny*sizeof(double));
 			
@@ -723,16 +725,25 @@ main(int argc, char** argv)
 			{
 				for (int yi = 0; yi < ny; yi++)
 				{
+					if (Param.gamma == 0)
+					{
+						gamma = gammaGrid(yi, xi);
+
+					}
+					else
+					{
+						gamma = Param.gamma;
+					}
 					std::cout << "xx,yy=" << xi << "(" << nx << ")," << yi << "(" << ny << ")" << '\r';
 					std::cout.flush();
 					for (int n = 0; n < test.n_cols; n++)
 					{
-						results2d[xi+yi*nx+n*ny*nx]=RBFinterp(Param.ncenters, Param.ndim, Param.gamma, RBFcoeffGrid(span(),span(yi,yi),span(xi,xi)), x, test.col(n));
+						results2d[xi+yi*nx+n*ny*nx]=RBFinterp(Param.ncenters, Param.ndim, gamma, RBFcoeffGrid(span(),span(yi,yi),span(xi,xi)), x, test.col(n));
 
 					}
 				}
 			}
-			printf("Saving...");
+			printf("\nSaving...");
 			// Write 3d netcdf
 			create3dnc(Param.outputfile, nx, ny, test.n_cols, xx, yy, theta, results2d);
 

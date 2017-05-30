@@ -51,6 +51,14 @@ Param readparamstr(std::string line, Param param)
 		param.RBFcoefffile = parametervalue;
 		//std::cerr << "Bathymetry file found!" << std::endl;
 	}
+
+	parameterstr = "gammafile";
+	parametervalue = findparameter(parameterstr, line);
+	if (!parametervalue.empty())
+	{
+		param.gammafile = parametervalue;
+		//std::cerr << "Bathymetry file found!" << std::endl;
+	}
 	
 	parameterstr = "inputfile";
 	parametervalue = findparameter(parameterstr, line);
