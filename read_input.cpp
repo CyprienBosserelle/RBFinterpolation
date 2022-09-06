@@ -191,7 +191,7 @@ std::string trim(const std::string& str, const std::string& whitespace)
 void writedatafile(std::vector<double> outputdata, std::string outputfile)
 {
 	FILE * fs;
-	fopen(&fs,outputfile.c_str(),"w");
+	fs=fopen(outputfile.c_str(),"w");
 	for (int i = 0; i < outputdata.size(); i++)
 	{
 		//
