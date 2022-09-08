@@ -1,5 +1,6 @@
 #include <iostream>
 #include <math.h>
+#include <omp.h>
 #include <armadillo>
 #include "RBF.h"
 //#define pi 3.14159265
@@ -365,6 +366,8 @@ main(int argc, char** argv)
 	double *yy = NULL;//used to reconstruct the netcdf files
 	double *theta; //used to reconstruct the netcdf files
 
+	omp_set_num_threads(4);
+
 
 	//////////////////////////////////////////////////////
 	/////             Read Operational file          /////
@@ -563,30 +566,36 @@ main(int argc, char** argv)
 			RBFcoeffGrid = RBFcoeffGrid.zeros(Param.ncenters + Param.ndim + 1, ny, nx);
 			gammaGrid = gammaGrid.zeros(nx, ny);
 			printf("Training RBFcoeff...");
-			for (int xi = 0; xi < nx; xi++)
-			{
-				for (int yi = 0; yi < ny; yi++)
-				{
 
-					std::cout << "xx,yy=" << xi << "(" << nx << ")," << yi << "(" << ny << ")" << '\r';
-					std::cout.flush();
-
-					y = yGrid(span(), span(yi, yi), span(xi, xi));
-
-					if (Param.gamma <= 0.0)
+			
+				#pragma omp parallel for
+				
+					for (int xi = 0; xi < nx; xi++)
 					{
-						gammaGrid(xi, yi) = findgamma(Param.ncenters, Param.ndim, x, y.t());
-					}
-					else
-					{
-						gammaGrid(xi, yi) = Param.gamma;
-					}
+						for (int yi = 0; yi < ny; yi++)
+						{
 
-					RBFcoeff = RBFtrain(Param.ncenters, Param.ndim, gammaGrid(xi, yi), x, y.t());
-					RBFcoeffGrid(span(), span(yi, yi), span(xi, xi)) = RBFcoeff;
+							//std::cout << "xx,yy=" << xi << "(" << nx << ")," << yi << "(" << ny << ")" << '\r';
+							//std::cout.flush();
 
-				}
-			}
+							y = yGrid(span(), span(yi, yi), span(xi, xi));
+
+							if (Param.gamma <= 0.0)
+							{
+								gammaGrid(xi, yi) = findgamma(Param.ncenters, Param.ndim, x, y.t());
+							}
+							else
+							{
+								gammaGrid(xi, yi) = Param.gamma;
+							}
+
+							RBFcoeff = RBFtrain(Param.ncenters, Param.ndim, gammaGrid(xi, yi), x, y.t());
+							RBFcoeffGrid(span(), span(yi, yi), span(xi, xi)) = RBFcoeff;
+
+						}
+					}
+				
+			
 			printf("Done\n");
 			
 			if (Param.saveRBFcoeffs == 1)
@@ -603,19 +612,20 @@ main(int argc, char** argv)
 				{
 					theta[n] = n;
 				}
+				
 				for (int xi = 0; xi < nx; xi++)
 				{
 					for (int yi = 0; yi < ny; yi++)
 					{
-						gamma2d[xi + yi*nx] = gammaGrid(xi, yi);
+						gamma2d[xi + yi * nx] = gammaGrid(xi, yi);
 						for (int ti = 0; ti < ntheta; ti++)
 						{
 							//
-							RBFtrained2d[xi + yi*nx + ti*ny*nx] = RBFcoeffGrid(ti, yi, xi);
+							RBFtrained2d[xi + yi * nx + ti * ny * nx] = RBFcoeffGrid(ti, yi, xi);
 						}
 					}
 				}
-
+			
 				// Write 3d netcdf
 				createTrainingnc(Param.RBFcoefffile, nx, ny, ntheta,  xx, yy, theta, RBFtrained2d,gamma2d);
 				free(RBFtrained2d);
@@ -721,28 +731,34 @@ main(int argc, char** argv)
 				theta[n] = n;
 			}
 
-			for (int xi = 0; xi < nx; xi++)
-			{
-				for (int yi = 0; yi < ny; yi++)
-				{
-					if (Param.gamma == 0)
-					{
-						gamma = gammaGrid(yi, xi);
+			
+				#pragma omp parallel for
+				
 
-					}
-					else
+					for (int xi = 0; xi < nx; xi++)
 					{
-						gamma = Param.gamma;
-					}
-					std::cout << "xx,yy=" << xi << "(" << nx << ")," << yi << "(" << ny << ")" << '\r';
-					std::cout.flush();
-					for (int n = 0; n < test.n_cols; n++)
-					{
-						results2d[xi+yi*nx+n*ny*nx]=RBFinterp(Param.ncenters, Param.ndim, gamma, RBFcoeffGrid(span(),span(yi,yi),span(xi,xi)), x, test.col(n));
+						for (int yi = 0; yi < ny; yi++)
+						{
+							if (Param.gamma == 0)
+							{
+								gamma = gammaGrid(yi, xi);
 
+							}
+							else
+							{
+								gamma = Param.gamma;
+							}
+							//std::cout << "xx,yy=" << xi << "(" << nx << ")," << yi << "(" << ny << ")" << '\r';
+							//std::cout.flush();
+							for (int n = 0; n < test.n_cols; n++)
+							{
+								results2d[xi + yi * nx + n * ny * nx] = RBFinterp(Param.ncenters, Param.ndim, gamma, RBFcoeffGrid(span(), span(yi, yi), span(xi, xi)), x, test.col(n));
+
+							}
+						}
 					}
-				}
-			}
+				
+			
 			printf("\nSaving...");
 			// Write 3d netcdf
 			create3dnc(Param.outputfile, nx, ny, test.n_cols, xx, yy, theta, results2d);
