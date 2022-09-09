@@ -574,6 +574,20 @@ arma::cube read3Dnc(std::string ncfile, int nx, int ny, int nt)
 
 	status = nc_close(ncid);
 	free(tmpdatastore);
+	for (int k = 0; k < nt; k++)
+	{
+		for (int j = 0; j < ny; j++)
+		{
+			for (int i = 0; i < nx; i++)
+			{
+				if (isnan(data(k, j, i)))
+				{
+					data(k, j, i) = 0.0;
+				}
+			}
+		}
+	}
+
 	return data;
 }
 

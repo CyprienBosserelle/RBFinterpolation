@@ -568,7 +568,7 @@ main(int argc, char** argv)
 			printf("Training RBFcoeff...");
 
 			
-				#pragma omp parallel for
+				//#pragma omp parallel for
 				
 					for (int xi = 0; xi < nx; xi++)
 					{
@@ -577,6 +577,8 @@ main(int argc, char** argv)
 
 							//std::cout << "xx,yy=" << xi << "(" << nx << ")," << yi << "(" << ny << ")" << '\r';
 							//std::cout.flush();
+
+							
 
 							y = yGrid(span(), span(yi, yi), span(xi, xi));
 
