@@ -1,6 +1,5 @@
 #include <iostream>
 #include <math.h>
-#include <omp.h>
 #include <armadillo>
 #include "RBF.h"
 //#define pi 3.14159265
@@ -366,7 +365,7 @@ main(int argc, char** argv)
 	double *yy = NULL;//used to reconstruct the netcdf files
 	double *theta; //used to reconstruct the netcdf files
 
-	omp_set_num_threads(4);
+	//omp_set_num_threads(4);
 
 
 	//////////////////////////////////////////////////////
@@ -734,7 +733,7 @@ main(int argc, char** argv)
 			}
 
 			
-				#pragma omp parallel for
+				//#pragma omp parallel for
 				
 
 					for (int xi = 0; xi < nx; xi++)
